@@ -1,26 +1,44 @@
-const jwt = require('jsonwebtoken');
+// middleware/auth.js (FULL CORRECT CODE)
+const jwt = require('jsonwebtoken'); // Import JWT (install first: npm install jsonwebtoken)
 
-const auth = (req, res, next) => {
-  try {
-    const authHeader = req.header('Authorization');
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'No token, authorization denied' });
+// Use env var for JWT secret (or fallback for testing)
+const JWT_SECRET = process.env.JWT_SECRET;
+
+// ✅ Valid protect middleware function (DO NOT rename or break this!)
+const protect = async (req, res, next) => {
+  let token;
+
+  // Extract token from Authorization header (format: Bearer <token>)
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+    try {
+      // Get token (split "Bearer <token>" → ["Bearer", "token"] → take index 1)
+      token = req.headers.authorization.split(' ')[1];
+      
+      // Verify the token (throws error if invalid/expired)
+      const decoded = jwt.verify(token, JWT_SECRET);
+      
+      // Attach decoded user data to request (optional, for future use)
+      req.user = decoded;
+      
+      // Proceed to the next middleware/route handler
+      next();
+    } catch (error) {
+      // Token invalid/expired
+      res.status(401).json({
+        status: "error",
+        message: "Not authorized: Invalid or expired token"
+      });
     }
+  }
 
-    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
-
-    if (!token) {
-      return res.status(401).json({ error: 'No token, authorization denied' });
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = { id: decoded.userId };
-    next();
-  } catch (err) {
-    res.status(403).json({ error: 'Token is not valid' });
+  // No token provided
+  if (!token) {
+    res.status(401).json({
+      status: "error",
+      message: "Not authorized: No token provided"
+    });
   }
 };
 
-module.exports = auth;
-
+// ✅ Export the protect function CORRECTLY (lowercase "protect" – match import!)
+module.exports = { protect };
