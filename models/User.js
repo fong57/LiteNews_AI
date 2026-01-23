@@ -1,25 +1,49 @@
-// models/User.js (FULL UPDATED CODE)
+// models/User.js - Extended with preferences
 const mongoose = require('mongoose');
 
-// 定义用户Schema（新增password字段，适配JWT认证）
 const userSchema = new mongoose.Schema({
   name: {
     type: String,
-    required: [true, '姓名不能为空'],
+    required: [true, 'Name is required'],
     trim: true,
-    unique: true // 新增：用户名唯一（避免重复注册同一个用户名）
+    unique: true
   },
   age: {
     type: Number,
-    required: [true, '年龄不能为空'],
-    min: [1, '年龄不能小于1']
+    required: [true, 'Age is required'],
+    min: [1, 'Age must be at least 1']
   },
+  email: {
+    type: String,
+    trim: true,
+    lowercase: true
+  },
+  preferences: {
+    sources: [{
+      type: { type: String, enum: ['rss', 'instagram', 'x', 'website'], required: true },
+      url: String,
+      handle: String,
+      name: String,
+      priority: { type: Number, default: 5, min: 1, max: 10 }
+    }],
+    categories: [{
+      type: String,
+      trim: true
+    }],
+    defaultTimeframe: { type: String, default: '24h', enum: ['24h', '7d', '30d'] }
+  },
+  topicPreferences: {
+    likedTopics: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Topic' }],
+    dislikedTopics: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Topic' }],
+    topicScores: {
+      type: Map,
+      of: Number,
+      default: {}
+    }
+  }
 }, {
-  timestamps: true // 自动添加createdAt/updatedAt
+  timestamps: true
 });
 
-// 核心：避免模型重复编译（Mongoose官方方案，保持不变）
 const User = mongoose.models.User || mongoose.model('User', userSchema);
-
-// 导出模型，供路由文件（auth.js/user.js）使用（保持不变）
 module.exports = User;

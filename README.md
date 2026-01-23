@@ -1,54 +1,296 @@
-# AI Journal – MERN Backend (v0)
+# LiteNews AI
 
-A simple journaling web app backend built with the MERN stack.  
-Users can authenticate, create journal entries in semi‑structured markdown, and store parsed text plus vector embeddings in MongoDB Atlas for future AI querying and a coaching chatbot.
+An AI-powered news aggregation and recommendation system that fetches news from multiple sources (RSS, websites), categorizes them using AI, groups related articles into topics, and provides personalized recommendations based on user preferences.
+
+## 🎯 Project Overview
+
+LiteNews AI is a full-stack application that:
+- **Aggregates** news from RSS feeds and websites
+- **Categorizes** articles using AI/LLM (Ollama or mock mode)
+- **Groups** related articles into intelligent topics
+- **Ranks** topics by relevance and user preferences
+- **Personalizes** content based on user feedback and preferences
+
+## ✨ Features
+
+### Core Functionality
+- **Multi-source News Fetching**: Fetch from RSS feeds and websites
+- **AI-powered Categorization**: Automatically categorize news articles using LLM
+- **Topic Grouping**: Group related articles into coherent topics with AI-generated summaries
+- **Smart Ranking**: Rank topics by discussion score, recency, and user preferences
+- **User Preferences**: Customize news sources, categories, and timeframes
+- **Feedback System**: Like/dislike topics to improve recommendations
+- **Timeframe Filtering**: View news from last 24 hours, 7 days, or 30 days
+
+### Technical Features
+- JWT-based authentication
+- RESTful API with rate limiting
+- MongoDB Atlas integration
+- Responsive React frontend (CDN-based, no build step)
+- Mock LLM mode for testing without Ollama
+- Real-time news processing
+
+## 🛠️ Tech Stack
+
+### Backend
+- **Node.js** + **Express** - REST API server
+- **MongoDB Atlas** - Cloud database
+- **Mongoose** - ODM for MongoDB
+- **JWT** - Authentication
+- **RSS Parser** - RSS feed parsing
+- **Cheerio** - Web scraping
+- **Axios** - HTTP client
+- **Ollama** (optional) - Local LLM for AI features
+
+### Frontend
+- **React 18** (via CDN) - UI framework
+- **Babel Standalone** - JSX transpilation
+- **Modern CSS** - Responsive design
+
+## 📋 Prerequisites
+
+- Node.js (v14 or higher)
+- MongoDB Atlas account (or local MongoDB)
+- (Optional) Ollama installed and running for AI features
+
+## 🚀 Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd LiteNews_AI
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Configure environment variables**
+   ```bash
+   cp .env.example .env
+   ```
+   
+   Edit `.env` and set:
+   - `MONGODB_URI` - Your MongoDB connection string
+   - `JWT_SECRET` - Secret key for JWT tokens
+   - `PORT` - Server port (default: 4250)
+   - `OLLAMA_BASE_URL` - Ollama server URL (if using)
+   - `USE_MOCK_LLM` - Set to `true` to use mock mode
+
+4. **Create admin user**
+   ```bash
+   ./create-admin-user.sh
+   ```
+   
+   Or manually:
+   ```bash
+   # Get JWT token
+   TOKEN=$(curl -s -X POST http://localhost:4250/api/auth/login \
+     -H "Content-Type: application/json" \
+     -d '{"password":"YOUR_JWT_SECRET"}' | jq -r '.token')
+   
+   # Create admin user
+   curl -X POST http://localhost:4250/api/users \
+     -H "Content-Type: application/json" \
+     -H "Authorization: Bearer $TOKEN" \
+     -d '{"name":"admin","age":25}'
+   ```
+
+5. **Start the server**
+   ```bash
+   npm start
+   # or for development with auto-reload
+   npm run dev_start
+   ```
+
+6. **Access the frontend**
+   Open your browser to `http://localhost:4250`
+
+## 🔧 Configuration
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `MONGODB_URI` | MongoDB connection string | `mongodb://localhost:27017/litenews` |
+| `JWT_SECRET` | Secret key for JWT tokens | Required |
+| `PORT` | Server port | `4250` |
+| `FRONTEND_URL` | Frontend URL for CORS | `http://localhost:3000` |
+| `OLLAMA_BASE_URL` | Ollama server URL | `http://localhost:11434` |
+| `OLLAMA_MODEL` | Ollama model name | `llama3.2` |
+| `USE_MOCK_LLM` | Force mock LLM mode | `false` |
+
+### Setting Up News Sources
+
+1. Login to the frontend
+2. Click "Preferences" button
+3. Add RSS feeds or website URLs
+4. Set categories you're interested in
+5. Configure default timeframe
+
+## 📡 API Endpoints
+
+### Authentication
+- `POST /api/auth/login` - Login with password (returns JWT token)
+
+### Users
+- `GET /api/users` - Get all users (protected)
+- `GET /api/users/:userId` - Get user by ID (protected)
+- `POST /api/users` - Create new user (protected)
+- `PUT /api/users/:userId` - Update user (protected)
+- `DELETE /api/users/:userId` - Delete user (protected)
+
+### Preferences
+- `GET /api/preferences` - Get user preferences (protected)
+- `PUT /api/preferences/sources` - Update news sources (protected)
+- `PUT /api/preferences/categories` - Update categories (protected)
+- `PUT /api/preferences/timeframe` - Update default timeframe (protected)
+
+### News
+- `POST /api/news/fetch` - Fetch news from configured sources (protected)
+- `GET /api/news/items` - Get news items (protected)
+- `POST /api/news/process` - Process news into topics (protected)
+
+### Topics
+- `GET /api/topics?category=<category>&limit=<limit>` - Get topics by category (protected)
+- `POST /api/topics/:topicId/feedback` - Submit feedback (up/down) (protected)
+
+### Health
+- `GET /api/health` - Health check endpoint
+
+## 📁 Project Structure
+
+```
+LiteNews_AI/
+├── server.js                 # Main Express server
+├── package.json              # Dependencies and scripts
+├── .env                      # Environment variables (not in git)
+├── .env.example             # Example environment file
+│
+├── models/                   # Mongoose models
+│   ├── User.js              # User model with preferences
+│   ├── NewsItem.js          # News article model
+│   ├── Topic.js             # Topic model
+│   └── FeedSource.js        # Feed source model
+│
+├── routes/                   # Express routes
+│   ├── auth.js              # Authentication routes
+│   ├── user.js              # User management routes
+│   ├── preferences.js       # User preferences routes
+│   ├── news.js              # News fetching/processing routes
+│   └── topics.js            # Topic routes
+│
+├── services/                 # Business logic
+│   ├── newsFetcher.js       # RSS/web scraping service
+│   ├── topicGrouper.js      # Topic grouping service
+│   ├── rankingService.js    # Topic ranking service
+│   └── llmService.js        # LLM/AI service (Ollama or mock)
+│
+├── middleware/               # Express middleware
+│   └── auth.js              # JWT authentication middleware
+│
+├── utils/                    # Utility functions
+│   └── userHelper.js        # User lookup helper
+│
+├── public/                   # Static files
+│   ├── index.html           # React frontend (single-page app)
+│   └── style.css            # Legacy styles (not used)
+│
+├── scripts/                  # Utility scripts
+│   ├── add-user.js          # User creation script
+│   └── test-db.js           # Database test script
+│
+└── create-admin-user.sh     # Admin user creation script
+```
+
+## 🎨 Frontend
+
+The frontend is a single-page React application served from `public/index.html`. It includes:
+
+- **Login Page**: Password-based authentication
+- **Dashboard**: Main interface for news management
+- **Topic Cards**: Display topics with summaries and news items
+- **Preferences Modal**: Manage sources, categories, and settings
+- **Feedback System**: Like/dislike topics
+- **Category Filtering**: Filter topics by category
+
+No build step required - React and Babel are loaded via CDN.
+
+## 🔄 Workflow
+
+1. **Setup**: Create admin user and configure preferences
+2. **Fetch**: Click "Fetch News" to retrieve articles from sources
+3. **Process**: Click "Process Topics" to categorize and group articles
+4. **Browse**: View topics by category, read articles, provide feedback
+5. **Personalize**: System learns from your feedback to improve rankings
+
+## 🧪 Development
+
+### Running in Development Mode
+```bash
+npm run dev_start
+```
+Uses `nodemon` for auto-reload on file changes.
+
+### Mock LLM Mode
+Set `USE_MOCK_LLM=true` in `.env` to use mock AI responses without Ollama. Useful for:
+- Testing without LLM setup
+- Development without GPU
+- Faster iteration
+
+### Database Scripts
+```bash
+# Test database connection
+node scripts/test-db.js
+
+# Add a test user
+node scripts/add-user.js
+```
+
+## 🔒 Security
+
+- JWT-based authentication
+- Rate limiting on API endpoints (100 requests per 15 minutes)
+- CORS configuration
+- Input validation
+- Protected routes with middleware
+
+## 📝 Notes
+
+- The system uses a single "admin" user identified by name (not ObjectId)
+- News items are deduplicated by URL
+- Topics are ranked by discussion score, recency, and user preferences
+- Feedback (likes/dislikes) affects future topic rankings
+- Mock LLM mode provides basic keyword-based categorization
+
+## 🐛 Troubleshooting
+
+### MongoDB Connection Issues
+- Check your `MONGODB_URI` in `.env`
+- Ensure IP is whitelisted in MongoDB Atlas
+- Verify SSL/TLS settings
+
+### "User not found" Errors
+- Make sure admin user exists: `./create-admin-user.sh`
+- Check JWT token is valid and not expired
+
+### LLM Errors
+- If using Ollama, ensure it's running: `ollama serve`
+- Use mock mode for testing: `USE_MOCK_LLM=true`
+
+### Frontend Not Loading
+- Check server is running on correct port
+- Verify static files are being served from `public/` directory
+
+## 📄 License
+
+ISC
+
+## 👤 Author
+
+LiteNews AI Development Team
 
 ---
 
-## 1. Project Overview
-
-This project is the backend API for an AI‑ready journaling app:
-
-- Tech stack:
-  - **Node.js + Express** for the REST API server.
-  - **MongoDB Atlas (M0 free tier)** for cloud database.
-  - **Mongoose** for object modeling.
-  - **JWT‑based auth** for user login/registration.
-  - **Markdown parsing** on the server to extract plain text and sections.
-  - **Embeddings field** stored with each journal entry to support future vector search.
-
-The frontend (React) will consume this API but is not included in this documentation.
-
----
-
-## 2. Features (current scope)
-
-- User registration and login with JWT.
-- Protected journal APIs (each user only sees their own entries).
-- Create, read, update, delete journal entries.
-- Accept journal content as markdown and:
-  - Store raw markdown.
-  - Store derived plain text.
-  - Store basic sections parsed from headings.
-- Store an embedding field placeholder for each entry (ready to plug into an embedding API).
-
----
-
-## 3. Project Structure
-
-Approximate directory layout:
-
-```text
-ai-journal-server/
-├─ server.js
-├─ .env
-├─ package.json
-├─ models/
-│  ├─ User.js
-│  └─ JournalEntry.js
-├─ routes/
-│  ├─ auth.js
-│  └─ journal.js
-├─ middleware/
-│  └─ auth.js
-└─ ...
+**Happy News Reading! 📰**

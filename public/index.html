@@ -3,558 +3,1210 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>User API - JWT Authentication</title>
-    <!-- React & Babel CDN (no npm install needed) -->
+    <title>LiteNews AI - Personalized News Aggregation</title>
+    <!-- React & Babel CDN -->
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- Basic styling (clean & responsive) -->
     <style>
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: 'Arial', sans-serif;
         }
+
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1e40af;
+            --secondary: #64748b;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text: #1e293b;
+            --text-light: #64748b;
+            --border: #e2e8f0;
+            --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
         body {
-            max-width: 900px;
-            margin: 2rem auto;
-            padding: 0 1rem;
-            background-color: #f8f9fa;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
         }
-        .container {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 1.5rem;
+
+        .app {
+            min-height: 100vh;
         }
-        h1 {
-            color: #333;
+
+        /* Header */
+        .header {
+            background: var(--card-bg);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: var(--shadow);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.875rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: var(--primary-dark);
+        }
+
+        .btn-secondary {
+            background: var(--secondary);
+            color: white;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: #475569;
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text);
+        }
+
+        .btn-outline:hover:not(:disabled) {
+            background: var(--bg);
+        }
+
+        .btn-sm {
+            padding: 0.375rem 0.75rem;
+            font-size: 0.8125rem;
+        }
+
+        /* Login Page */
+        .login-container {
+            max-width: 400px;
+            margin: 5rem auto;
+            padding: 2rem;
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .login-container h2 {
             margin-bottom: 1.5rem;
             text-align: center;
+            color: var(--text);
         }
-        h2 {
-            color: #444;
-            margin-bottom: 1rem;
-            border-bottom: 2px solid #007bff;
-            padding-bottom: 0.5rem;
+
+        .form-group {
+            margin-bottom: 1.25rem;
         }
-        input {
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--text);
+        }
+
+        .form-control {
             width: 100%;
-            max-width: 300px;
             padding: 0.75rem;
-            margin: 0.5rem 0;
-            border: 1px solid #ddd;
-            border-radius: 4px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: border-color 0.2s;
         }
-        button {
-            padding: 0.75rem 1.5rem;
-            margin: 0.5rem 0.25rem;
-            border: none;
-            border-radius: 4px;
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        /* Main Content */
+        .main-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Control Panel */
+        .control-panel {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .control-group {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .select {
+            padding: 0.5rem 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: white;
+            font-size: 0.875rem;
             cursor: pointer;
+        }
+
+        /* Topics Grid */
+        .topics-section {
+            margin-bottom: 2rem;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .topics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 1.5rem;
+        }
+
+        /* Topic Card */
+        .topic-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: 1px solid var(--border);
+        }
+
+        .topic-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .topic-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 1rem;
+        }
+
+        .topic-title {
+            font-size: 1.125rem;
             font-weight: 600;
-            transition: background 0.2s;
+            color: var(--text);
+            margin-bottom: 0.5rem;
+            flex: 1;
         }
-        .btn-primary {
-            background-color: #007bff;
+
+        .topic-category {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            background: var(--bg);
+            color: var(--primary);
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin-bottom: 0.75rem;
+        }
+
+        .topic-summary {
+            color: var(--text-light);
+            font-size: 0.875rem;
+            margin-bottom: 1rem;
+            line-height: 1.6;
+        }
+
+        .topic-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            font-size: 0.8125rem;
+            color: var(--text-light);
+        }
+
+        .topic-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .btn-icon {
+            padding: 0.5rem;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-icon:hover {
+            background: var(--bg);
+        }
+
+        .btn-icon.active {
+            background: var(--primary);
             color: white;
+            border-color: var(--primary);
         }
-        .btn-primary:hover {
-            background-color: #0056b3;
+
+        /* News Items */
+        .news-items {
+            margin-top: 1rem;
+            border-top: 1px solid var(--border);
+            padding-top: 1rem;
         }
-        .btn-danger {
-            background-color: #dc3545;
-            color: white;
+
+        .news-item {
+            padding: 0.75rem;
+            border-left: 3px solid var(--primary);
+            background: var(--bg);
+            border-radius: 6px;
+            margin-bottom: 0.75rem;
         }
-        .btn-danger:hover {
-            background-color: #c82333;
+
+        .news-item-title {
+            font-weight: 600;
+            font-size: 0.875rem;
+            margin-bottom: 0.25rem;
+            color: var(--text);
         }
-        .btn-logout {
-            background-color: #6c757d;
-            color: white;
+
+        .news-item-meta {
+            font-size: 0.75rem;
+            color: var(--text-light);
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 0.25rem;
         }
-        .btn-logout:hover {
-            background-color: #5a6268;
+
+        .news-item-link {
+            color: var(--primary);
+            text-decoration: none;
+            font-size: 0.75rem;
         }
-        .user-item {
+
+        .news-item-link:hover {
+            text-decoration: underline;
+        }
+
+        /* Preferences Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 2rem;
+        }
+
+        .modal {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 2rem;
+            max-width: 600px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-light);
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+        }
+
+        .close-btn:hover {
+            background: var(--bg);
+        }
+
+        /* Messages */
+        .message {
             padding: 1rem;
-            border: 1px solid #eee;
-            border-radius: 4px;
-            margin: 0.75rem 0;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
         }
-        .error-message {
-            color: #dc3545;
-            margin: 0.5rem 0;
-            font-weight: 500;
+
+        .message-success {
+            background: #d1fae5;
+            color: #065f46;
         }
-        .success-message {
-            color: #28a745;
-            margin: 0.5rem 0;
-            font-weight: 500;
+
+        .message-error {
+            background: #fee2e2;
+            color: #991b1b;
         }
-        .hidden {
-            display: none;
+
+        .message-info {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-light);
+        }
+
+        .spinner {
+            border: 3px solid var(--border);
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-light);
+        }
+
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header {
+                padding: 1rem;
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .main-content {
+                padding: 1rem;
+            }
+
+            .topics-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .control-panel {
+                flex-direction: column;
+                align-items: stretch;
+            }
         }
     </style>
 </head>
 <body>
-    <!-- React Mount Point -->
     <div id="root"></div>
 
-    <!-- React Component with Full JWT Logic -->
     <script type="text/babel">
-        // Main React Component
-        function UserAPIClient() {
-            // ======================
-            // 1. State Management (All UI/API Data)
-            // ======================
-            // User list state
-            const [users, setUsers] = React.useState([]);
-            // Create user form state
-            const [newName, setNewName] = React.useState('');
-            const [newAge, setNewAge] = React.useState('');
-            // Update user form state
-            const [updateName, setUpdateName] = React.useState('');
-            const [updateAge, setUpdateAge] = React.useState('');
-            const [selectedUserId, setSelectedUserId] = React.useState('');
-            // Login form state (password-only)
-            const [loginPassword, setLoginPassword] = React.useState('');
-            // Notification state (success/error messages)
-            const [message, setMessage] = React.useState({ text: '', type: '' });
+        const { useState, useEffect } = React;
 
-            // ======================
-            // 2. Helper Functions (JWT & API Utilities)
-            // ======================
-            // Get JWT token from localStorage (persists across page refreshes)
-            const getToken = () => localStorage.getItem('jwt_token');
-            
-            // Clear token (for logout/expired token)
-            const clearToken = () => localStorage.removeItem('jwt_token');
-            
-            // Show temporary message (success/error)
-            const showMessage = (text, type = 'error') => {
-                setMessage({ text, type });
-                // Auto-clear message after 3 seconds
-                setTimeout(() => setMessage({ text: '', type: '' }), 3000);
+        function App() {
+            const [isLoggedIn, setIsLoggedIn] = useState(false);
+            const [loading, setLoading] = useState(false);
+            const [message, setMessage] = useState(null);
+            const [topics, setTopics] = useState([]);
+            const [selectedCategory, setSelectedCategory] = useState('');
+            const [categories, setCategories] = useState([]);
+            const [timeframe, setTimeframe] = useState('24h');
+            const [showPreferences, setShowPreferences] = useState(false);
+            const [preferences, setPreferences] = useState({
+                sources: [],
+                categories: [],
+                defaultTimeframe: '24h'
+            });
+
+            // Check if user is logged in on mount
+            useEffect(() => {
+                const token = localStorage.getItem('jwt_token');
+                if (token) {
+                    setIsLoggedIn(true);
+                    loadPreferences();
+                }
+            }, []);
+
+            // Load preferences
+            const loadPreferences = async () => {
+                try {
+                    const token = localStorage.getItem('jwt_token');
+                    const res = await fetch('/api/preferences', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        setPreferences(data.data);
+                        setCategories(data.data.categories || []);
+                        setTimeframe(data.data.defaultTimeframe || '24h');
+                    }
+                } catch (error) {
+                    console.error('Failed to load preferences:', error);
+                }
             };
 
-            // Check if user is logged in (has valid token)
-            const isLoggedIn = () => !!getToken();
-
-            // ======================
-            // 3. JWT Login Function
-            // ======================
+            // Login
             const handleLogin = async (e) => {
-                e.preventDefault(); // Prevent form from reloading page
-                
-                // Basic form validation
-                if (!loginPassword) {
-                    showMessage('Please enter password!');
-                    return;
-                }
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                const password = formData.get('password');
 
+                setLoading(true);
                 try {
-                    // Call backend login API (/api/auth/login)
-                    const response = await fetch('/api/auth/login', {
+                    const res = await fetch('/api/auth/login', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            password: loginPassword
-                        }),
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ password })
                     });
 
-                    const data = await response.json();
-
-                    // Handle login errors (wrong credentials, server error)
-                    if (!response.ok || !data.token) {
-                        showMessage(data.message || 'Login failed! Please check your password.');
-                        return;
+                    const data = await res.json();
+                    if (res.ok && data.token) {
+                        localStorage.setItem('jwt_token', data.token);
+                        setIsLoggedIn(true);
+                        showMessage('Login successful!', 'success');
+                        loadPreferences();
+                    } else {
+                        showMessage(data.message || 'Login failed', 'error');
                     }
-
-                    // SUCCESS: Store JWT token in localStorage
-                    localStorage.setItem('jwt_token', data.token);
-                    showMessage('Login successful! Loading user data...', 'success');
-                    
-                    // Reset login form
-                    setLoginPassword('');
-                    
-                    // Load user data after login
-                    fetchUsers();
-
                 } catch (error) {
-                    showMessage(`Login error: ${error.message}`);
-                    console.error('Login failed:', error);
+                    showMessage('Login error: ' + error.message, 'error');
+                } finally {
+                    setLoading(false);
                 }
             };
 
-            // ======================
-            // 4. JWT Logout Function
-            // ======================
+            // Logout
             const handleLogout = () => {
-                clearToken();
-                setUsers([]); // Clear user list
-                showMessage('Logged out successfully!', 'success');
+                localStorage.removeItem('jwt_token');
+                setIsLoggedIn(false);
+                setTopics([]);
+                showMessage('Logged out successfully', 'success');
             };
 
-            // ======================
-            // 5. API Functions (All with JWT Validation)
-            // ======================
-            // Fetch all users (with JWT)
-            const fetchUsers = async () => {
-                // Check if user is logged in (has token)
-                if (!isLoggedIn()) {
-                    showMessage('Please login first to view users!');
-                    return;
-                }
-
+            // Fetch news
+            const handleFetchNews = async () => {
+                setLoading(true);
                 try {
-                    const response = await fetch('/api/users', {
-                        method: 'GET',
-                        headers: {
-                            // Inject JWT token in Authorization header (Bearer format)
-                            'Authorization': `Bearer ${getToken()}`
-                        },
-                    });
-
-                    // Handle 401 (Unauthorized) - token expired/invalid
-                    if (response.status === 401) {
-                        clearToken();
-                        setUsers([]);
-                        showMessage('Session expired! Please login again.');
-                        return;
-                    }
-
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.message || 'Failed to fetch users');
-                    }
-
-                    const data = await response.json();
-                    setUsers(data.data); // Update user list state
-                    showMessage(`Fetched ${data.count} users successfully!`, 'success');
-
-                } catch (error) {
-                    showMessage(`Fetch error: ${error.message}`);
-                    console.error('Fetch users failed:', error);
-                }
-            };
-
-            // Create new user (with JWT)
-            const createUser = async (e) => {
-                e.preventDefault();
-                
-                if (!isLoggedIn()) {
-                    showMessage('Please login first to create users!');
-                    return;
-                }
-
-                // Form validation
-                if (!newName || !newAge) {
-                    showMessage('Name and age are required!');
-                    return;
-                }
-
-                try {
-                    const response = await fetch('/api/users', {
+                    const token = localStorage.getItem('jwt_token');
+                    const res = await fetch('/api/news/fetch', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${getToken()}` // JWT token
+                            'Authorization': `Bearer ${token}`
                         },
-                        body: JSON.stringify({
-                            name: newName,
-                            age: Number(newAge) // Convert to number (matches backend schema)
-                        }),
+                        body: JSON.stringify({ timeframe })
                     });
 
-                    if (response.status === 401) {
-                        clearToken();
-                        showMessage('Session expired! Please login again.');
-                        return;
+                    const data = await res.json();
+                    if (res.ok) {
+                        showMessage(`Fetched ${data.data.count} news items`, 'success');
+                        // Auto-process after fetching
+                        setTimeout(() => handleProcessNews(), 1000);
+                    } else {
+                        showMessage(data.message || 'Failed to fetch news', 'error');
                     }
-
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.message || 'Failed to create user');
-                    }
-
-                    const data = await response.json();
-                    showMessage(data.message, 'success');
-                    
-                    // Reset create form
-                    setNewName('');
-                    setNewAge('');
-                    
-                    // Refresh user list
-                    fetchUsers();
-
                 } catch (error) {
-                    showMessage(`Create error: ${error.message}`);
-                    console.error('Create user failed:', error);
+                    showMessage('Fetch error: ' + error.message, 'error');
+                } finally {
+                    setLoading(false);
                 }
             };
 
-            // Update existing user (with JWT)
-            const updateUser = async (e) => {
-                e.preventDefault();
-                
-                if (!isLoggedIn()) {
-                    showMessage('Please login first to update users!');
-                    return;
-                }
-
-                // Form validation
-                if (!selectedUserId || !updateName || !updateAge) {
-                    showMessage('User ID, new name, and new age are required!');
-                    return;
-                }
-
+            // Process news into topics
+            const handleProcessNews = async () => {
+                setLoading(true);
                 try {
-                    const response = await fetch(`/api/users/${selectedUserId}`, {
-                        method: 'PUT',
+                    const token = localStorage.getItem('jwt_token');
+                    const res = await fetch('/api/news/process', {
+                        method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${getToken()}` // JWT token
+                            'Authorization': `Bearer ${token}`
                         },
-                        body: JSON.stringify({
-                            name: updateName,
-                            age: Number(updateAge)
-                        }),
+                        body: JSON.stringify({ timeframe })
                     });
 
-                    if (response.status === 401) {
-                        clearToken();
-                        showMessage('Session expired! Please login again.');
-                        return;
+                    const data = await res.json();
+                    if (res.ok) {
+                        showMessage(`Created ${data.data.topics.length} topics`, 'success');
+                        loadTopics();
+                    } else {
+                        showMessage(data.message || 'Failed to process news', 'error');
                     }
-
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.message || 'Failed to update user');
-                    }
-
-                    const data = await response.json();
-                    showMessage(data.message, 'success');
-                    
-                    // Reset update form
-                    setSelectedUserId('');
-                    setUpdateName('');
-                    setUpdateAge('');
-                    
-                    // Refresh user list
-                    fetchUsers();
-
                 } catch (error) {
-                    showMessage(`Update error: ${error.message}`);
-                    console.error('Update user failed:', error);
+                    showMessage('Process error: ' + error.message, 'error');
+                } finally {
+                    setLoading(false);
                 }
             };
 
-            // Delete user (with JWT)
-            const deleteUser = async (userId) => {
-                if (!isLoggedIn()) {
-                    showMessage('Please login first to delete users!');
+            // Load topics
+            const loadTopics = async (category = selectedCategory) => {
+                if (!category && categories.length > 0) {
+                    category = categories[0];
+                }
+                if (!category) {
+                    setTopics([]);
                     return;
                 }
 
-                // Confirm deletion (prevent accidental clicks)
-                if (!confirm('Are you sure you want to delete this user?')) {
-                    return;
-                }
-
+                setLoading(true);
                 try {
-                    const response = await fetch(`/api/users/${userId}`, {
-                        method: 'DELETE',
-                        headers: {
-                            'Authorization': `Bearer ${getToken()}` // JWT token
-                        },
+                    const token = localStorage.getItem('jwt_token');
+                    const res = await fetch(`/api/topics?category=${encodeURIComponent(category)}&limit=20`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
                     });
 
-                    if (response.status === 401) {
-                        clearToken();
-                        showMessage('Session expired! Please login again.');
-                        return;
+                    const data = await res.json();
+                    if (res.ok) {
+                        setTopics(data.data || []);
+                    } else {
+                        showMessage(data.message || 'Failed to load topics', 'error');
                     }
-
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.message || 'Failed to delete user');
-                    }
-
-                    const data = await response.json();
-                    showMessage(data.message, 'success');
-                    
-                    // Refresh user list
-                    fetchUsers();
-
                 } catch (error) {
-                    showMessage(`Delete error: ${error.message}`);
-                    console.error('Delete user failed:', error);
+                    showMessage('Load error: ' + error.message, 'error');
+                } finally {
+                    setLoading(false);
                 }
             };
 
-            // ======================
-            // 6. Initial Data Fetch (After Login/Component Mount)
-            // ======================
-            React.useEffect(() => {
-                // Fetch users automatically if already logged in (page refresh)
-                if (isLoggedIn()) {
-                    fetchUsers();
-                }
-            }, []); // Empty dependency array = run once on component mount
+            // Submit feedback
+            const handleFeedback = async (topicId, feedback) => {
+                try {
+                    const token = localStorage.getItem('jwt_token');
+                    const res = await fetch(`/api/topics/${topicId}/feedback`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ feedback })
+                    });
 
-            // ======================
-            // 7. UI Render (All Forms & User List)
-            // ======================
+                    if (res.ok) {
+                        showMessage('Feedback recorded!', 'success');
+                        loadTopics();
+                    }
+                } catch (error) {
+                    showMessage('Feedback error: ' + error.message, 'error');
+                }
+            };
+
+            // Show message
+            const showMessage = (text, type = 'info') => {
+                setMessage({ text, type });
+                setTimeout(() => setMessage(null), 5000);
+            };
+
+            // Load topics when category changes
+            useEffect(() => {
+                if (isLoggedIn && selectedCategory) {
+                    loadTopics(selectedCategory);
+                }
+            }, [selectedCategory, isLoggedIn]);
+
+            if (!isLoggedIn) {
+                return <LoginPage onLogin={handleLogin} loading={loading} message={message} />;
+            }
+
             return (
                 <div className="app">
-                    <h1>User API Dashboard (JWT Protected)</h1>
-
-                    {/* ----------------------
-                        Login/Logout Section
-                    ---------------------- */}
-                    <div className="container">
-                        <h2>Authentication</h2>
-                        
-                        {/* Login Form (show if not logged in) */}
-                        {!isLoggedIn() ? (
-                            <form onSubmit={handleLogin}>
-                                <input
-                                    type="password"
-                                    placeholder="Enter admin password"
-                                    value={loginPassword}
-                                    onChange={(e) => setLoginPassword(e.target.value)}
-                                    required
-                                />
-                                <button type="submit" className="btn-primary">Login</button>
-                            </form>
-                        ) : (
-                            // Logout Button (show if logged in)
-                            <button onClick={handleLogout} className="btn-logout">
-                                Logout (Admin)
-                            </button>
-                        )}
-                    </div>
-
-                    {/* ----------------------
-                        Notification Section
-                    ---------------------- */}
-                    {message.text && (
-                        <div className={message.type === 'success' ? 'success-message' : 'error-message'}>
+                    <Header onLogout={handleLogout} onPreferences={() => setShowPreferences(true)} />
+                    
+                    {message && (
+                        <div className={`message message-${message.type}`}>
                             {message.text}
                         </div>
                     )}
 
-                    {/* ----------------------
-                        Create User Section
-                    ---------------------- */}
-                    <div className="container">
-                        <h2>Create New User</h2>
-                        <form onSubmit={createUser}>
-                            <input
-                                type="text"
-                                placeholder="Enter user name"
-                                value={newName}
-                                onChange={(e) => setNewName(e.target.value)}
-                                disabled={!isLoggedIn()} // Disable if not logged in
-                            />
-                            <input
-                                type="number"
-                                placeholder="Enter user age"
-                                value={newAge}
-                                onChange={(e) => setNewAge(e.target.value)}
-                                min="1" // Match backend schema validation
-                                disabled={!isLoggedIn()}
-                            />
-                            <button type="submit" className="btn-primary" disabled={!isLoggedIn()}>
-                                Create User
-                            </button>
-                        </form>
+                    <div className="main-content">
+                        <ControlPanel
+                            categories={categories}
+                            selectedCategory={selectedCategory}
+                            onCategoryChange={setSelectedCategory}
+                            timeframe={timeframe}
+                            onTimeframeChange={setTimeframe}
+                            onFetchNews={handleFetchNews}
+                            onProcessNews={handleProcessNews}
+                            loading={loading}
+                        />
+
+                        <TopicsSection
+                            topics={topics}
+                            loading={loading}
+                            selectedCategory={selectedCategory}
+                            onFeedback={handleFeedback}
+                        />
                     </div>
 
-                    {/* ----------------------
-                        Update User Section
-                    ---------------------- */}
-                    <div className="container">
-                        <h2>Update User</h2>
-                        <form onSubmit={updateUser}>
-                            <input
-                                type="text"
-                                placeholder="Enter User ID to update"
-                                value={selectedUserId}
-                                onChange={(e) => setSelectedUserId(e.target.value)}
-                                disabled={!isLoggedIn()}
-                            />
-                            <input
-                                type="text"
-                                placeholder="Enter new name"
-                                value={updateName}
-                                onChange={(e) => setUpdateName(e.target.value)}
-                                disabled={!isLoggedIn()}
-                            />
-                            <input
-                                type="number"
-                                placeholder="Enter new age"
-                                value={updateAge}
-                                onChange={(e) => setUpdateAge(e.target.value)}
-                                min="1"
-                                disabled={!isLoggedIn()}
-                            />
-                            <button type="submit" className="btn-primary" disabled={!isLoggedIn()}>
-                                Update User
-                            </button>
-                        </form>
-                    </div>
+                    {showPreferences && (
+                        <PreferencesModal
+                            preferences={preferences}
+                            onClose={() => setShowPreferences(false)}
+                            onSave={async (newPrefs) => {
+                                setPreferences(newPrefs);
+                                setCategories(newPrefs.categories || []);
+                                setTimeframe(newPrefs.defaultTimeframe || '24h');
+                                setShowPreferences(false);
+                                showMessage('Preferences saved!', 'success');
+                            }}
+                        />
+                    )}
+                </div>
+            );
+        }
 
-                    {/* ----------------------
-                        User List Section
-                    ---------------------- */}
-                    <div className="container">
-                        <h2>
-                            User List
-                            <button 
-                                onClick={fetchUsers} 
-                                className="btn-primary"
-                                style={{ marginLeft: '1rem' }}
-                                disabled={!isLoggedIn()}
-                            >
-                                Refresh List
-                            </button>
-                        </h2>
-                        
-                        {users.length === 0 ? (
-                            <p>No users found. Create a new user to get started!</p>
-                        ) : (
-                            users.map((user) => (
-                                <div key={user._id} className="user-item">
-                                    <p><strong>ID:</strong> {user._id}</p>
-                                    <p><strong>Name:</strong> {user.name}</p>
-                                    <p><strong>Age:</strong> {user.age}</p>
-                                    <p><strong>Created At:</strong> {new Date(user.createdAt).toLocaleString()}</p>
-                                    <button 
-                                        onClick={() => deleteUser(user._id)} 
-                                        className="btn-danger"
-                                        disabled={!isLoggedIn()}
-                                    >
-                                        Delete User
-                                    </button>
-                                </div>
-                            ))
-                        )}
+        function LoginPage({ onLogin, loading, message }) {
+            return (
+                <div className="login-container">
+                    <h2>LiteNews AI</h2>
+                    <p style={{ textAlign: 'center', color: 'var(--text-light)', marginBottom: '1.5rem' }}>
+                        AI-Powered News Aggregation
+                    </p>
+                    {message && (
+                        <div className={`message message-${message.type}`}>
+                            {message.text}
+                        </div>
+                    )}
+                    <form onSubmit={onLogin}>
+                        <div className="form-group">
+                            <label htmlFor="password">Password</label>
+                            <input
+                                type="password"
+                                id="password"
+                                name="password"
+                                className="form-control"
+                                required
+                                disabled={loading}
+                            />
+                        </div>
+                        <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
+                            {loading ? 'Logging in...' : 'Login'}
+                        </button>
+                    </form>
+                </div>
+            );
+        }
+
+        function Header({ onLogout, onPreferences }) {
+            return (
+                <div className="header">
+                    <h1>📰 LiteNews AI</h1>
+                    <div className="header-actions">
+                        <button className="btn btn-outline btn-sm" onClick={onPreferences}>
+                            ⚙️ Preferences
+                        </button>
+                        <button className="btn btn-secondary btn-sm" onClick={onLogout}>
+                            Logout
+                        </button>
                     </div>
                 </div>
             );
         }
 
-        // ======================
-        // 8. Render Component to DOM
-        // ======================
+        function ControlPanel({ categories, selectedCategory, onCategoryChange, timeframe, onTimeframeChange, onFetchNews, onProcessNews, loading }) {
+            return (
+                <div className="control-panel">
+                    <div className="control-group">
+                        <label>Category:</label>
+                        <select
+                            className="select"
+                            value={selectedCategory}
+                            onChange={(e) => onCategoryChange(e.target.value)}
+                            disabled={loading || categories.length === 0}
+                        >
+                            <option value="">Select category...</option>
+                            {categories.map(cat => (
+                                <option key={cat} value={cat}>{cat}</option>
+                            ))}
+                        </select>
+                        <label>Timeframe:</label>
+                        <select
+                            className="select"
+                            value={timeframe}
+                            onChange={(e) => onTimeframeChange(e.target.value)}
+                            disabled={loading}
+                        >
+                            <option value="24h">Last 24 hours</option>
+                            <option value="7d">Last 7 days</option>
+                            <option value="30d">Last 30 days</option>
+                        </select>
+                    </div>
+                    <div className="control-group">
+                        <button
+                            className="btn btn-primary"
+                            onClick={onFetchNews}
+                            disabled={loading}
+                        >
+                            📥 Fetch News
+                        </button>
+                        <button
+                            className="btn btn-success"
+                            onClick={onProcessNews}
+                            disabled={loading}
+                        >
+                            🤖 Process Topics
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        function TopicsSection({ topics, loading, selectedCategory, onFeedback }) {
+            if (loading) {
+                return (
+                    <div className="loading">
+                        <div className="spinner"></div>
+                        <p>Loading topics...</p>
+                    </div>
+                );
+            }
+
+            if (!selectedCategory) {
+                return (
+                    <div className="empty-state">
+                        <div className="empty-state-icon">📋</div>
+                        <h3>Select a category to view topics</h3>
+                        <p>Choose a category from the dropdown above</p>
+                    </div>
+                );
+            }
+
+            if (topics.length === 0) {
+                return (
+                    <div className="empty-state">
+                        <div className="empty-state-icon">📰</div>
+                        <h3>No topics found</h3>
+                        <p>Try fetching and processing news first</p>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="topics-section">
+                    <div className="section-header">
+                        <h2 className="section-title">Topics: {selectedCategory}</h2>
+                        <span style={{ color: 'var(--text-light)' }}>{topics.length} topics</span>
+                    </div>
+                    <div className="topics-grid">
+                        {topics.map(topic => (
+                            <TopicCard key={topic._id} topic={topic} onFeedback={onFeedback} />
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        function TopicCard({ topic, onFeedback }) {
+            const [expanded, setExpanded] = useState(false);
+            const [newsItems, setNewsItems] = useState([]);
+            const [loadingItems, setLoadingItems] = useState(false);
+
+            const loadNewsItems = async () => {
+                if (newsItems.length > 0) {
+                    setExpanded(!expanded);
+                    return;
+                }
+
+                setLoadingItems(true);
+                try {
+                    const token = localStorage.getItem('jwt_token');
+                    const res = await fetch('/api/news/items?category=' + encodeURIComponent(topic.category), {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        const items = data.data.filter(item => 
+                            item.topicId === topic._id || topic.newsItems.includes(item._id)
+                        );
+                        setNewsItems(items);
+                        setExpanded(true);
+                    }
+                } catch (error) {
+                    console.error('Failed to load news items:', error);
+                } finally {
+                    setLoadingItems(false);
+                }
+            };
+
+            return (
+                <div className="topic-card">
+                    <div className="topic-header">
+                        <div style={{ flex: 1 }}>
+                            <span className="topic-category">{topic.category}</span>
+                            <h3 className="topic-title">{topic.title}</h3>
+                        </div>
+                    </div>
+                    {topic.summary && (
+                        <p className="topic-summary">{topic.summary}</p>
+                    )}
+                    <div className="topic-meta">
+                        <span>📊 Score: {topic.finalScore || topic.discussionScore || 0}</span>
+                        <span>📰 {topic.newsItems?.length || 0} items</span>
+                    </div>
+                    <div className="topic-actions">
+                        <button
+                            className="btn-icon"
+                            onClick={() => onFeedback(topic._id, 'up')}
+                            title="Like"
+                        >
+                            👍
+                        </button>
+                        <button
+                            className="btn-icon"
+                            onClick={() => onFeedback(topic._id, 'down')}
+                            title="Dislike"
+                        >
+                            👎
+                        </button>
+                        <button
+                            className="btn btn-outline btn-sm"
+                            onClick={loadNewsItems}
+                            disabled={loadingItems}
+                            style={{ marginLeft: 'auto' }}
+                        >
+                            {expanded ? 'Hide' : 'Show'} News
+                        </button>
+                    </div>
+                    {expanded && (
+                        <div className="news-items">
+                            {loadingItems ? (
+                                <div style={{ textAlign: 'center', padding: '1rem' }}>Loading...</div>
+                            ) : newsItems.length > 0 ? (
+                                newsItems.map(item => (
+                                    <div key={item._id} className="news-item">
+                                        <div className="news-item-title">{item.title}</div>
+                                        {item.description && (
+                                            <div style={{ fontSize: '0.8125rem', color: 'var(--text-light)', marginTop: '0.25rem' }}>
+                                                {item.description.substring(0, 100)}...
+                                            </div>
+                                        )}
+                                        <div className="news-item-meta">
+                                            <span>{new Date(item.publishedAt).toLocaleDateString()}</span>
+                                            <span>{item.source?.name || item.source?.type}</span>
+                                            {item.url && (
+                                                <a href={item.url} target="_blank" rel="noopener noreferrer" className="news-item-link">
+                                                    Read more →
+                                                </a>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-light)' }}>
+                                    No news items found
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        function PreferencesModal({ preferences, onClose, onSave }) {
+            const [sources, setSources] = useState(preferences.sources || []);
+            const [categories, setCategories] = useState(preferences.categories || []);
+            const [defaultTimeframe, setDefaultTimeframe] = useState(preferences.defaultTimeframe || '24h');
+            const [newSource, setNewSource] = useState({ type: 'rss', url: '', name: '', priority: 5 });
+            const [newCategory, setNewCategory] = useState('');
+
+            const handleSave = async () => {
+                const token = localStorage.getItem('jwt_token');
+                
+                // Update sources
+                await fetch('/api/preferences/sources', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ sources })
+                });
+
+                // Update categories
+                await fetch('/api/preferences/categories', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ categories })
+                });
+
+                // Update timeframe
+                await fetch('/api/preferences/timeframe', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ timeframe: defaultTimeframe })
+                });
+
+                onSave({ sources, categories, defaultTimeframe });
+            };
+
+            const addSource = () => {
+                if (newSource.url) {
+                    setSources([...sources, { ...newSource }]);
+                    setNewSource({ type: 'rss', url: '', name: '', priority: 5 });
+                }
+            };
+
+            const removeSource = (index) => {
+                setSources(sources.filter((_, i) => i !== index));
+            };
+
+            const addCategory = () => {
+                if (newCategory && !categories.includes(newCategory)) {
+                    setCategories([...categories, newCategory]);
+                    setNewCategory('');
+                }
+            };
+
+            const removeCategory = (cat) => {
+                setCategories(categories.filter(c => c !== cat));
+            };
+
+            return (
+                <div className="modal-overlay" onClick={onClose}>
+                    <div className="modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h2 className="modal-title">Preferences</h2>
+                            <button className="close-btn" onClick={onClose}>×</button>
+                        </div>
+
+                        <div className="form-group">
+                            <label>Default Timeframe</label>
+                            <select
+                                className="form-control"
+                                value={defaultTimeframe}
+                                onChange={(e) => setDefaultTimeframe(e.target.value)}
+                            >
+                                <option value="24h">Last 24 hours</option>
+                                <option value="7d">Last 7 days</option>
+                                <option value="30d">Last 30 days</option>
+                            </select>
+                        </div>
+
+                        <div className="form-group">
+                            <label>Categories</label>
+                            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    placeholder="Add category"
+                                    value={newCategory}
+                                    onChange={(e) => setNewCategory(e.target.value)}
+                                    onKeyPress={(e) => e.key === 'Enter' && addCategory()}
+                                />
+                                <button type="button" className="btn btn-primary" onClick={addCategory}>Add</button>
+                            </div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                {categories.map(cat => (
+                                    <span key={cat} style={{
+                                        padding: '0.25rem 0.75rem',
+                                        background: 'var(--bg)',
+                                        borderRadius: '20px',
+                                        fontSize: '0.875rem',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.5rem'
+                                    }}>
+                                        {cat}
+                                        <button
+                                            type="button"
+                                            onClick={() => removeCategory(cat)}
+                                            style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                fontSize: '1rem'
+                                            }}
+                                        >×</button>
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="form-group">
+                            <label>News Sources</label>
+                            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+                                <select
+                                    className="form-control"
+                                    style={{ flex: '0 0 120px' }}
+                                    value={newSource.type}
+                                    onChange={(e) => setNewSource({ ...newSource, type: e.target.value })}
+                                >
+                                    <option value="rss">RSS</option>
+                                    <option value="website">Website</option>
+                                </select>
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    placeholder="URL"
+                                    value={newSource.url}
+                                    onChange={(e) => setNewSource({ ...newSource, url: e.target.value })}
+                                    style={{ flex: 1 }}
+                                />
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    placeholder="Name (optional)"
+                                    value={newSource.name}
+                                    onChange={(e) => setNewSource({ ...newSource, name: e.target.value })}
+                                    style={{ flex: '0 0 150px' }}
+                                />
+                                <input
+                                    type="number"
+                                    className="form-control"
+                                    placeholder="Priority"
+                                    value={newSource.priority}
+                                    onChange={(e) => setNewSource({ ...newSource, priority: parseInt(e.target.value) || 5 })}
+                                    style={{ flex: '0 0 80px' }}
+                                    min="1"
+                                    max="10"
+                                />
+                                <button type="button" className="btn btn-primary" onClick={addSource}>Add</button>
+                            </div>
+                            {sources.map((source, index) => (
+                                <div key={index} style={{
+                                    padding: '0.75rem',
+                                    background: 'var(--bg)',
+                                    borderRadius: '6px',
+                                    marginBottom: '0.5rem',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center'
+                                }}>
+                                    <div>
+                                        <strong>{source.name || source.url}</strong> ({source.type})
+                                        <div style={{ fontSize: '0.8125rem', color: 'var(--text-light)' }}>
+                                            {source.url} • Priority: {source.priority}
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className="btn btn-danger btn-sm"
+                                        onClick={() => removeSource(index)}
+                                    >
+                                        Remove
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+                            <button className="btn btn-outline" onClick={onClose}>Cancel</button>
+                            <button className="btn btn-primary" onClick={handleSave}>Save</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
         const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<UserAPIClient />);
+        root.render(<App />);
     </script>
 </body>
 </html>

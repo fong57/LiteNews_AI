@@ -2,59 +2,78 @@
 const cors = require('cors');
 const express = require('express');
 const mongoose = require('mongoose');
-require('dotenv').config(); // 加载环境变量
+require('dotenv').config();
 
-const MONGODB_URI = process.env.MONGODB_URI;
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/litenews';
 
-
-// 1. 创建Express应用
 const app = express();
 
-// Optional: Rate limiting middleware to enhance security
+// Rate limiting
 const rateLimit = require('express-rate-limit');
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // 100 requests per IP per window
+  windowMs: 15 * 60 * 1000,
+  max: 100,
   message: "Too many requests – try again later!"
 });
-app.use('/api', apiLimiter); // Apply to all API routes
+app.use('/api', apiLimiter);
 
-// Allow only your frontend domain (e.g., https://your-frontend.com)
+// CORS
 app.use(cors({
-  origin: process.env.FRONTEND_URL,
+  origin: process.env.FRONTEND_URL || '*',
   methods: ["GET", "POST", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization", "X-API-Key"]
 }));
 
-//set up static files
+// Static files
 app.use(express.static('public'));
 
-// 2. 配置全局中间件（必须在路由注册前）
-app.use(express.json()); // 解析JSON请求体
+// Middleware
+app.use(express.json());
 
-// 3. 连接MongoDB数据库
+// MongoDB connection
+const mongooseOptions = {
+  // For MongoDB Atlas, SSL is required
+  ssl: true,
+  tls: true,
+  // Allow self-signed certificates if needed (not recommended for production)
+  tlsAllowInvalidCertificates: false,
+  // Connection pool options
+  maxPoolSize: 10,
+  serverSelectionTimeoutMS: 5000,
+  socketTimeoutMS: 45000,
+};
+
 mongoose
-  .connect(MONGODB_URI)
+  .connect(MONGODB_URI, mongooseOptions)
   .then(() => {
-    console.log('✅ 成功连接到MongoDB数据库');
+    console.log('✅ Connected to MongoDB');
   })
   .catch((err) => {
-    console.error('❌ 数据库连接失败：', err.message);
-    process.exit(1); // 连接失败则退出程序
+    console.error('❌ MongoDB connection failed:', err.message);
+    process.exit(1);
   });
 
-
-// 4. 注册认证路由（挂载到/api/auth路径）
+// Routes
 const authRoutes = require('./routes/auth.js');
-app.use('/api/auth', authRoutes);
-
-// 5. 注册用户路由（核心：挂载到/api/users路径）
-// 含义：所有以/api/users开头的请求，都交给routes/user.js处理
 const userRoutes = require('./routes/user.js');
-app.use('/api/users', userRoutes);
+const preferencesRoutes = require('./routes/preferences.js');
+const newsRoutes = require('./routes/news.js');
+const topicsRoutes = require('./routes/topics.js');
 
-// 6. 启动服务
-const PORT = process.env.PORT; // 你的端口是4250，这里对应
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/preferences', preferencesRoutes);
+app.use('/api/news', newsRoutes);
+app.use('/api/topics', topicsRoutes);
+
+// Health check
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Start server
+const PORT = process.env.PORT || 4250;
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ Express服务已启动，访问地址：http://localhost:${PORT}`);
+  console.log(`✅ LiteNews_AI server started on http://localhost:${PORT}`);
+  console.log(`📝 Mock LLM mode: ${process.env.USE_MOCK_LLM === 'true' ? 'ENABLED' : 'AUTO'}`);
 });
