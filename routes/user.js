@@ -1,21 +1,49 @@
 // routes/user.js
 const express = require('express');
 const mongoose = require('mongoose'); 
-const User = require('../models/User'); // 导入用户模型
-const { protect } = require('../middleware/auth')
+const bcrypt = require('bcryptjs');
+const User = require('../models/User');
+const { protect, adminOnly } = require('../middleware/auth');
+const { findUserByIdOrName } = require('../utils/userHelper');
 
-// 1. 创建Express Router实例（核心：用于封装路由）
 const router = express.Router();
 
-// 应用保护中间件，所有用户路由均需验证JWT
-router.use(protect); // Enforce JWT for all user routes
+// Apply protection to all routes
+router.use(protect);
 
 // 2. 编写所有用户相关的路由（注意：路径去掉/api/users前缀，因为主文件会统一挂载）
 
-// 🔹 获取所有用户（GET /api/users）
-router.get('/', async (req, res) => {
+// Get current user info
+router.get('/me', async (req, res) => {
   try {
-    const users = await User.find({});
+    const user = await findUserByIdOrName(req.user.userId);
+    if (!user) {
+      return res.status(404).json({
+        status: "error",
+        message: "User not found"
+      });
+    }
+    
+    // Don't send password
+    const userData = user.toObject();
+    delete userData.password;
+    
+    res.status(200).json({
+      status: "success",
+      data: userData
+    });
+  } catch (err) {
+    res.status(500).json({
+      status: "error",
+      message: "Failed to get user: " + err.message
+    });
+  }
+});
+
+// Get all users (admin only)
+router.get('/', adminOnly, async (req, res) => {
+  try {
+    const users = await User.find({}).select('-password');
     res.status(200).json({
       status: "success",
       count: users.length,
@@ -24,7 +52,7 @@ router.get('/', async (req, res) => {
   } catch (err) {
     res.status(500).json({
       status: "error",
-      message: "查询用户失败：" + err.message
+      message: "Failed to fetch users: " + err.message
     });
   }
 });
@@ -60,94 +88,139 @@ router.get('/:userId', async (req, res) => {
   }
 });
 
-// 🔹 创建新用户（POST /api/users）
-router.post('/', async (req, res) => {
+// Create new user (admin only)
+router.post('/', adminOnly, async (req, res) => {
   try {
-    const { name, age } = req.body;
-    const newUser = await User.create({ name, age });
+    const { name, password, role = 'USER', email } = req.body;
+    
+    if (!name || !password) {
+      return res.status(400).json({
+        status: "error",
+        message: "Name and password are required"
+      });
+    }
+    
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    const newUser = await User.create({ 
+      name, 
+      password: hashedPassword,
+      role: role.toUpperCase(),
+      email
+    });
+
+    // Don't send password
+    const userData = newUser.toObject();
+    delete userData.password;
 
     res.status(201).json({
       status: "success",
-      message: "用户创建成功",
-      data: newUser
+      message: "User created successfully",
+      data: userData
     });
   } catch (err) {
     res.status(400).json({
       status: "error",
-      message: "创建用户失败：" + err.message
+      message: "Failed to create user: " + err.message
     });
   }
 });
 
-// 🔹 更新用户（PUT /api/users/:userId）
+// Update user (admin only, or user can update themselves)
 router.put('/:userId', async (req, res) => {
   try {
-    // 校验ID格式
-    if (!mongoose.Types.ObjectId.isValid(req.params.userId)) {
-      return res.status(400).json({
+    const { userId } = req.params;
+    const currentUser = await findUserByIdOrName(req.user.userId);
+    const targetUser = await findUserByIdOrName(userId);
+    
+    if (!targetUser) {
+      return res.status(404).json({
         status: "error",
-        message: "用户ID格式错误"
+        message: "User not found"
       });
     }
-
-    const { name, age } = req.body;
+    
+    // Check permissions: admin can update anyone, users can only update themselves
+    const isAdmin = currentUser.role === 'ADMIN';
+    const isSelf = targetUser.name === currentUser.name;
+    
+    if (!isAdmin && !isSelf) {
+      return res.status(403).json({
+        status: "error",
+        message: "Access denied: You can only update your own profile"
+      });
+    }
+    
+    const { name, password, role, email } = req.body;
     const updateData = {};
+    
     if (name) updateData.name = name;
-    if (age) updateData.age = age;
+    if (email !== undefined) updateData.email = email;
+    
+    // Only admin can change role
+    if (role && isAdmin) {
+      updateData.role = role.toUpperCase();
+    }
+    
+    // Hash password if provided
+    if (password) {
+      updateData.password = await bcrypt.hash(password, 10);
+    }
 
     const updatedUser = await User.findByIdAndUpdate(
-      req.params.userId,
+      targetUser._id,
       updateData,
       { new: true, runValidators: true }
     );
 
-    if (!updatedUser) {
-      return res.status(404).json({
-        status: "error",
-        message: "用户不存在"
-      });
-    }
+    // Don't send password
+    const userData = updatedUser.toObject();
+    delete userData.password;
 
     res.status(200).json({
       status: "success",
-      message: "用户更新成功",
-      data: updatedUser
+      message: "User updated successfully",
+      data: userData
     });
   } catch (err) {
     res.status(400).json({
       status: "error",
-      message: "更新用户失败：" + err.message
+      message: "Failed to update user: " + err.message
     });
   }
 });
 
-// 🔹 删除用户（DELETE /api/users/:userId）
-router.delete('/:userId', async (req, res) => {
+// Delete user (admin only)
+router.delete('/:userId', adminOnly, async (req, res) => {
   try {
-    // 校验ID格式
-    if (!mongoose.Types.ObjectId.isValid(req.params.userId)) {
+    const targetUser = await findUserByIdOrName(req.params.userId);
+    
+    if (!targetUser) {
+      return res.status(404).json({
+        status: "error",
+        message: "User not found"
+      });
+    }
+    
+    // Prevent deleting admin user
+    if (targetUser.role === 'ADMIN') {
       return res.status(400).json({
         status: "error",
-        message: "用户ID格式错误"
+        message: "Cannot delete admin user"
       });
     }
 
-    const deletedUser = await User.findByIdAndDelete(req.params.userId);
-    if (!deletedUser) {
-      return res.status(404).json({
-        status: "error",
-        message: "用户不存在"
-      });
-    }
+    await User.findByIdAndDelete(targetUser._id);
 
     res.status(200).json({
       status: "success",
-      message: "用户删除成功"
+      message: "User deleted successfully"
     });
   } catch (err) {
     res.status(500).json({
       status: "error",
-      message: "删除用户失败：" + err.message
+      message: "Failed to delete user: " + err.message
     });
   }
 });

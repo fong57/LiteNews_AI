@@ -79,23 +79,31 @@ LiteNews AI is a full-stack application that:
    - `USE_MOCK_LLM` - Set to `true` to use mock mode
 
 4. **Create admin user**
+   
+   **Option A: Generate JSON and import via MongoDB Compass (Recommended)**
    ```bash
-   ./create-admin-user.sh
+   npm run generate-admin-json
    ```
    
-   Or manually:
-   ```bash
-   # Get JWT token
-   TOKEN=$(curl -s -X POST http://localhost:4250/api/auth/login \
-     -H "Content-Type: application/json" \
-     -d '{"password":"YOUR_JWT_SECRET"}' | jq -r '.token')
+   This creates `admin-user.json` in the project root. Then:
+   1. Open MongoDB Compass
+   2. Connect to your MongoDB Atlas cluster
+   3. Select your database (or create `litenews` if needed)
+   4. Select or create the `users` collection
+   5. Click "Add Data" → "Import File"
+   6. Select `admin-user.json`
+   7. Choose format: JSON
+   8. Click "Import"
    
-   # Create admin user
-   curl -X POST http://localhost:4250/api/users \
-     -H "Content-Type: application/json" \
-     -H "Authorization: Bearer $TOKEN" \
-     -d '{"name":"admin","age":25}'
+   **Option B: Create via API (after server is running)**
+   ```bash
+   # First, you'll need to create a user through MongoDB Compass or directly
+   # Then login and use the admin panel to create more users
    ```
+   
+   **Default admin credentials:**
+   - Username: `admin`
+   - Password: `admin123`
 
 5. **Start the server**
    ```bash
@@ -132,14 +140,15 @@ LiteNews AI is a full-stack application that:
 ## 📡 API Endpoints
 
 ### Authentication
-- `POST /api/auth/login` - Login with password (returns JWT token)
+- `POST /api/auth/login` - Login with username and password (returns JWT token and user info)
 
 ### Users
-- `GET /api/users` - Get all users (protected)
+- `GET /api/users/me` - Get current user info (protected)
+- `GET /api/users` - Get all users (admin only)
 - `GET /api/users/:userId` - Get user by ID (protected)
-- `POST /api/users` - Create new user (protected)
-- `PUT /api/users/:userId` - Update user (protected)
-- `DELETE /api/users/:userId` - Delete user (protected)
+- `POST /api/users` - Create new user (admin only)
+- `PUT /api/users/:userId` - Update user (admin or self)
+- `DELETE /api/users/:userId` - Delete user (admin only)
 
 ### Preferences
 - `GET /api/preferences` - Get user preferences (protected)
@@ -199,9 +208,12 @@ LiteNews_AI/
 │
 ├── scripts/                  # Utility scripts
 │   ├── add-user.js          # User creation script
-│   └── test-db.js           # Database test script
+│   ├── test-db.js           # Database test script
+│   ├── reset-db.js          # Database reset script
+│   └── generate-admin-json.js # Generate admin user JSON for import
 │
-└── create-admin-user.sh     # Admin user creation script
+├── admin-user.json          # Admin user JSON (generated, for MongoDB Compass import)
+└── admin-user-single.json   # Alternative single-document format
 ```
 
 ## 🎨 Frontend
@@ -246,6 +258,12 @@ node scripts/test-db.js
 
 # Add a test user
 node scripts/add-user.js
+
+# Generate admin user JSON for MongoDB Compass import
+npm run generate-admin-json
+
+# Reset database (clears all data and recreates indexes)
+npm run reset-db
 ```
 
 ## 🔒 Security
@@ -272,7 +290,8 @@ node scripts/add-user.js
 - Verify SSL/TLS settings
 
 ### "User not found" Errors
-- Make sure admin user exists: `./create-admin-user.sh`
+- Make sure admin user exists: Generate and import `admin-user.json` via MongoDB Compass
+- Run `npm run generate-admin-json` to create the JSON file
 - Check JWT token is valid and not expired
 
 ### LLM Errors

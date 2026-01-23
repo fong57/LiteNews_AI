@@ -40,5 +40,19 @@ const protect = async (req, res, next) => {
   }
 };
 
+// Admin-only middleware
+const adminOnly = async (req, res, next) => {
+  // Check for role in both possible locations (role or userRole for backward compatibility)
+  const userRole = req.user?.role || req.user?.userRole;
+  
+  if (!req.user || userRole !== 'ADMIN') {
+    return res.status(403).json({
+      status: "error",
+      message: "Access denied: Admin privileges required"
+    });
+  }
+  next();
+};
+
 // ✅ Export the protect function CORRECTLY (lowercase "protect" – match import!)
-module.exports = { protect };
+module.exports = { protect, adminOnly };

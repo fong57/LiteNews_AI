@@ -505,6 +505,8 @@
 
         function App() {
             const [isLoggedIn, setIsLoggedIn] = useState(false);
+            const [userRole, setUserRole] = useState(null);
+            const [currentUser, setCurrentUser] = useState(null);
             const [loading, setLoading] = useState(false);
             const [message, setMessage] = useState(null);
             const [topics, setTopics] = useState([]);
@@ -512,6 +514,7 @@
             const [categories, setCategories] = useState([]);
             const [timeframe, setTimeframe] = useState('24h');
             const [showPreferences, setShowPreferences] = useState(false);
+            const [showAdminPanel, setShowAdminPanel] = useState(false);
             const [preferences, setPreferences] = useState({
                 sources: [],
                 categories: [],
@@ -521,11 +524,32 @@
             // Check if user is logged in on mount
             useEffect(() => {
                 const token = localStorage.getItem('jwt_token');
-                if (token) {
+                const role = localStorage.getItem('user_role');
+                if (token && role) {
                     setIsLoggedIn(true);
+                    setUserRole(role);
+                    loadUserInfo();
                     loadPreferences();
                 }
             }, []);
+
+            // Load user info
+            const loadUserInfo = async () => {
+                try {
+                    const token = localStorage.getItem('jwt_token');
+                    const res = await fetch('/api/users/me', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        setCurrentUser(data.data);
+                        setUserRole(data.data.role);
+                        localStorage.setItem('user_role', data.data.role);
+                    }
+                } catch (error) {
+                    console.error('Failed to load user info:', error);
+                }
+            };
 
             // Load preferences
             const loadPreferences = async () => {
@@ -549,6 +573,7 @@
             const handleLogin = async (e) => {
                 e.preventDefault();
                 const formData = new FormData(e.target);
+                const username = formData.get('username');
                 const password = formData.get('password');
 
                 setLoading(true);
@@ -556,13 +581,16 @@
                     const res = await fetch('/api/auth/login', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ password })
+                        body: JSON.stringify({ username, password })
                     });
 
                     const data = await res.json();
                     if (res.ok && data.token) {
                         localStorage.setItem('jwt_token', data.token);
+                        localStorage.setItem('user_role', data.user.role);
                         setIsLoggedIn(true);
+                        setUserRole(data.user.role);
+                        setCurrentUser(data.user);
                         showMessage('Login successful!', 'success');
                         loadPreferences();
                     } else {
@@ -578,7 +606,10 @@
             // Logout
             const handleLogout = () => {
                 localStorage.removeItem('jwt_token');
+                localStorage.removeItem('user_role');
                 setIsLoggedIn(false);
+                setUserRole(null);
+                setCurrentUser(null);
                 setTopics([]);
                 showMessage('Logged out successfully', 'success');
             };
@@ -709,9 +740,40 @@
                 return <LoginPage onLogin={handleLogin} loading={loading} message={message} />;
             }
 
+            // Show admin panel for ADMIN role
+            if (userRole === 'ADMIN' && showAdminPanel) {
+                return (
+                    <div className="app">
+                        <Header 
+                            onLogout={handleLogout} 
+                            onPreferences={() => setShowPreferences(true)}
+                            onAdminPanel={() => setShowAdminPanel(false)}
+                            userRole={userRole}
+                            currentUser={currentUser}
+                        />
+                        {message && (
+                            <div className={`message message-${message.type}`}>
+                                {message.text}
+                            </div>
+                        )}
+                        <AdminPanel 
+                            onBack={() => setShowAdminPanel(false)}
+                            showMessage={showMessage}
+                        />
+                    </div>
+                );
+            }
+
+            // Show regular dashboard for all users
             return (
                 <div className="app">
-                    <Header onLogout={handleLogout} onPreferences={() => setShowPreferences(true)} />
+                    <Header 
+                        onLogout={handleLogout} 
+                        onPreferences={() => setShowPreferences(true)}
+                        onAdminPanel={() => setShowAdminPanel(true)}
+                        userRole={userRole}
+                        currentUser={currentUser}
+                    />
                     
                     {message && (
                         <div className={`message message-${message.type}`}>
@@ -742,6 +804,7 @@
                     {showPreferences && (
                         <PreferencesModal
                             preferences={preferences}
+                            userRole={userRole}
                             onClose={() => setShowPreferences(false)}
                             onSave={async (newPrefs) => {
                                 setPreferences(newPrefs);
@@ -770,6 +833,18 @@
                     )}
                     <form onSubmit={onLogin}>
                         <div className="form-group">
+                            <label htmlFor="username">Username</label>
+                            <input
+                                type="text"
+                                id="username"
+                                name="username"
+                                className="form-control"
+                                required
+                                disabled={loading}
+                                autoComplete="username"
+                            />
+                        </div>
+                        <div className="form-group">
                             <label htmlFor="password">Password</label>
                             <input
                                 type="password"
@@ -778,6 +853,7 @@
                                 className="form-control"
                                 required
                                 disabled={loading}
+                                autoComplete="current-password"
                             />
                         </div>
                         <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
@@ -788,11 +864,21 @@
             );
         }
 
-        function Header({ onLogout, onPreferences }) {
+        function Header({ onLogout, onPreferences, onAdminPanel, userRole, currentUser }) {
             return (
                 <div className="header">
                     <h1>📰 LiteNews AI</h1>
                     <div className="header-actions">
+                        {currentUser && (
+                            <span style={{ marginRight: '1rem', color: 'var(--text-light)' }}>
+                                {currentUser.name} ({userRole})
+                            </span>
+                        )}
+                        {userRole === 'ADMIN' && (
+                            <button className="btn btn-outline btn-sm" onClick={onAdminPanel}>
+                                👤 Admin Panel
+                            </button>
+                        )}
                         <button className="btn btn-outline btn-sm" onClick={onPreferences}>
                             ⚙️ Preferences
                         </button>
@@ -1003,17 +1089,42 @@
             );
         }
 
-        function PreferencesModal({ preferences, onClose, onSave }) {
+        function PreferencesModal({ preferences, onClose, onSave, userRole }) {
             const [sources, setSources] = useState(preferences.sources || []);
             const [categories, setCategories] = useState(preferences.categories || []);
+            const [availableSources, setAvailableSources] = useState([]);
             const [defaultTimeframe, setDefaultTimeframe] = useState(preferences.defaultTimeframe || '24h');
             const [newSource, setNewSource] = useState({ type: 'rss', url: '', name: '', priority: 5 });
             const [newCategory, setNewCategory] = useState('');
+            const isAdmin = userRole === 'ADMIN';
+
+            // Load available sources on mount
+            useEffect(() => {
+                const loadAvailableSources = async () => {
+                    try {
+                        const token = localStorage.getItem('jwt_token');
+                        const res = await fetch('/api/preferences/sources/available', {
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        if (res.ok) {
+                            const data = await res.json();
+                            setAvailableSources(data.data || []);
+                            // Merge with user's priorities
+                            if (data.data && sources.length === 0) {
+                                setSources(data.data.map(s => ({ ...s, priority: s.priority || 5 })));
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Failed to load available sources:', error);
+                    }
+                };
+                loadAvailableSources();
+            }, []);
 
             const handleSave = async () => {
                 const token = localStorage.getItem('jwt_token');
                 
-                // Update sources
+                // Update sources (users can set priorities)
                 await fetch('/api/preferences/sources', {
                     method: 'PUT',
                     headers: {
@@ -1023,15 +1134,17 @@
                     body: JSON.stringify({ sources })
                 });
 
-                // Update categories
-                await fetch('/api/preferences/categories', {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ categories })
-                });
+                // Update categories (admin only)
+                if (isAdmin) {
+                    await fetch('/api/preferences/categories', {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ categories })
+                    });
+                }
 
                 // Update timeframe
                 await fetch('/api/preferences/timeframe', {
@@ -1090,22 +1203,481 @@
                         </div>
 
                         <div className="form-group">
-                            <label>Categories</label>
-                            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                                <input
-                                    type="text"
-                                    className="form-control"
-                                    placeholder="Add category"
-                                    value={newCategory}
-                                    onChange={(e) => setNewCategory(e.target.value)}
-                                    onKeyPress={(e) => e.key === 'Enter' && addCategory()}
-                                />
-                                <button type="button" className="btn btn-primary" onClick={addCategory}>Add</button>
+                            <label>
+                                Categories {!isAdmin && <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>(Admin only)</span>}
+                            </label>
+                            {isAdmin ? (
+                                <>
+                                    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                                        <input
+                                            type="text"
+                                            className="form-control"
+                                            placeholder="Add category"
+                                            value={newCategory}
+                                            onChange={(e) => setNewCategory(e.target.value)}
+                                            onKeyPress={(e) => e.key === 'Enter' && addCategory()}
+                                        />
+                                        <button type="button" className="btn btn-primary" onClick={addCategory}>Add</button>
+                                    </div>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                        {categories.map(cat => (
+                                            <span key={cat} style={{
+                                                padding: '0.25rem 0.75rem',
+                                                background: 'var(--bg)',
+                                                borderRadius: '20px',
+                                                fontSize: '0.875rem',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '0.5rem'
+                                            }}>
+                                                {cat}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeCategory(cat)}
+                                                    style={{
+                                                        background: 'none',
+                                                        border: 'none',
+                                                        cursor: 'pointer',
+                                                        fontSize: '1rem'
+                                                    }}
+                                                >×</button>
+                                            </span>
+                                        ))}
+                                    </div>
+                                </>
+                            ) : (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                    {categories.map(cat => (
+                                        <span key={cat} style={{
+                                            padding: '0.25rem 0.75rem',
+                                            background: 'var(--bg)',
+                                            borderRadius: '20px',
+                                            fontSize: '0.875rem'
+                                        }}>
+                                            {cat}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="form-group">
+                            <label>News Sources (Set Priority: 1-10)</label>
+                            <p style={{ fontSize: '0.8125rem', color: 'var(--text-light)', marginBottom: '0.5rem' }}>
+                                Adjust priority to affect ranking. Higher priority sources appear first.
+                            </p>
+                            {sources.map((source, index) => (
+                                <div key={index} style={{
+                                    padding: '0.75rem',
+                                    background: 'var(--bg)',
+                                    borderRadius: '6px',
+                                    marginBottom: '0.5rem',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    gap: '1rem'
+                                }}>
+                                    <div style={{ flex: 1 }}>
+                                        <strong>{source.name || source.url}</strong> ({source.type})
+                                        <div style={{ fontSize: '0.8125rem', color: 'var(--text-light)' }}>
+                                            {source.url}
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <label style={{ fontSize: '0.8125rem' }}>Priority:</label>
+                                        <input
+                                            type="number"
+                                            className="form-control"
+                                            value={source.priority || 5}
+                                            onChange={(e) => {
+                                                const updated = [...sources];
+                                                updated[index].priority = parseInt(e.target.value) || 5;
+                                                setSources(updated);
+                                            }}
+                                            style={{ width: '60px' }}
+                                            min="1"
+                                            max="10"
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+                            {sources.length === 0 && (
+                                <p style={{ color: 'var(--text-light)', fontSize: '0.875rem' }}>
+                                    No sources available. Admin needs to add sources first.
+                                </p>
+                            )}
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+                            <button className="btn btn-outline" onClick={onClose}>Cancel</button>
+                            <button className="btn btn-primary" onClick={handleSave}>Save</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function AdminPanel({ onBack, showMessage }) {
+            const [users, setUsers] = useState([]);
+            const [sources, setSources] = useState([]);
+            const [categories, setCategories] = useState([]);
+            const [loading, setLoading] = useState(false);
+            const [activeTab, setActiveTab] = useState('users');
+            const [showUserForm, setShowUserForm] = useState(false);
+            const [editingUser, setEditingUser] = useState(null);
+            const [userForm, setUserForm] = useState({ name: '', password: '', role: 'USER', email: '' });
+            const [sourceForm, setSourceForm] = useState({ name: '', type: 'rss', url: '', category: '' });
+
+            useEffect(() => {
+                loadData();
+            }, []);
+
+            const loadData = async () => {
+                setLoading(true);
+                try {
+                    const token = localStorage.getItem('jwt_token');
+                    
+                    // Load users
+                    const usersRes = await fetch('/api/users', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (usersRes.ok) {
+                        const usersData = await usersRes.json();
+                        setUsers(usersData.data || []);
+                    }
+
+                    // Load sources
+                    const sourcesRes = await fetch('/api/admin/sources', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (sourcesRes.ok) {
+                        const sourcesData = await sourcesRes.json();
+                        setSources(sourcesData.data || []);
+                    }
+
+                    // Load categories
+                    const categoriesRes = await fetch('/api/preferences', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (categoriesRes.ok) {
+                        const categoriesData = await categoriesRes.json();
+                        setCategories(categoriesData.data.categories || []);
+                    }
+                } catch (error) {
+                    showMessage('Failed to load data: ' + error.message, 'error');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const handleCreateUser = async () => {
+                try {
+                    const token = localStorage.getItem('jwt_token');
+                    const res = await fetch('/api/users', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(userForm)
+                    });
+
+                    if (res.ok) {
+                        showMessage('User created successfully', 'success');
+                        setShowUserForm(false);
+                        setUserForm({ name: '', password: '', role: 'USER', email: '' });
+                        loadData();
+                    } else {
+                        const data = await res.json();
+                        showMessage(data.message || 'Failed to create user', 'error');
+                    }
+                } catch (error) {
+                    showMessage('Error: ' + error.message, 'error');
+                }
+            };
+
+            const handleDeleteUser = async (userId) => {
+                if (!confirm('Are you sure you want to delete this user?')) return;
+                
+                try {
+                    const token = localStorage.getItem('jwt_token');
+                    const res = await fetch(`/api/users/${userId}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+
+                    if (res.ok) {
+                        showMessage('User deleted successfully', 'success');
+                        loadData();
+                    } else {
+                        const data = await res.json();
+                        showMessage(data.message || 'Failed to delete user', 'error');
+                    }
+                } catch (error) {
+                    showMessage('Error: ' + error.message, 'error');
+                }
+            };
+
+            const handleCreateSource = async () => {
+                try {
+                    const token = localStorage.getItem('jwt_token');
+                    const res = await fetch('/api/admin/sources', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(sourceForm)
+                    });
+
+                    if (res.ok) {
+                        showMessage('Source created successfully', 'success');
+                        setSourceForm({ name: '', type: 'rss', url: '', category: '' });
+                        loadData();
+                    } else {
+                        const data = await res.json();
+                        showMessage(data.message || 'Failed to create source', 'error');
+                    }
+                } catch (error) {
+                    showMessage('Error: ' + error.message, 'error');
+                }
+            };
+
+            const handleDeleteSource = async (sourceId) => {
+                if (!confirm('Are you sure you want to delete this source?')) return;
+                
+                try {
+                    const token = localStorage.getItem('jwt_token');
+                    const res = await fetch(`/api/admin/sources/${sourceId}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+
+                    if (res.ok) {
+                        showMessage('Source deleted successfully', 'success');
+                        loadData();
+                    } else {
+                        const data = await res.json();
+                        showMessage(data.message || 'Failed to delete source', 'error');
+                    }
+                } catch (error) {
+                    showMessage('Error: ' + error.message, 'error');
+                }
+            };
+
+            const handleUpdateCategories = async () => {
+                try {
+                    const token = localStorage.getItem('jwt_token');
+                    const res = await fetch('/api/preferences/categories', {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ categories })
+                    });
+
+                    if (res.ok) {
+                        showMessage('Categories updated successfully', 'success');
+                    } else {
+                        const data = await res.json();
+                        showMessage(data.message || 'Failed to update categories', 'error');
+                    }
+                } catch (error) {
+                    showMessage('Error: ' + error.message, 'error');
+                }
+            };
+
+            return (
+                <div className="main-content">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                        <h1 style={{ fontSize: '2rem' }}>Admin Panel</h1>
+                        <button className="btn btn-outline" onClick={onBack}>← Back to Dashboard</button>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', borderBottom: '2px solid var(--border)' }}>
+                        <button
+                            className={`btn ${activeTab === 'users' ? 'btn-primary' : 'btn-outline'}`}
+                            onClick={() => setActiveTab('users')}
+                        >
+                            👥 Users
+                        </button>
+                        <button
+                            className={`btn ${activeTab === 'sources' ? 'btn-primary' : 'btn-outline'}`}
+                            onClick={() => setActiveTab('sources')}
+                        >
+                            📰 Sources
+                        </button>
+                        <button
+                            className={`btn ${activeTab === 'categories' ? 'btn-primary' : 'btn-outline'}`}
+                            onClick={() => setActiveTab('categories')}
+                        >
+                            📂 Categories
+                        </button>
+                    </div>
+
+                    {activeTab === 'users' && (
+                        <div className="container">
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                                <h2>User Management</h2>
+                                <button className="btn btn-primary" onClick={() => setShowUserForm(true)}>
+                                    + Add User
+                                </button>
                             </div>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                                {categories.map(cat => (
-                                    <span key={cat} style={{
-                                        padding: '0.25rem 0.75rem',
+
+                            {showUserForm && (
+                                <div style={{ padding: '1rem', background: 'var(--bg)', borderRadius: '8px', marginBottom: '1rem' }}>
+                                    <h3>Create New User</h3>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+                                        <input
+                                            type="text"
+                                            className="form-control"
+                                            placeholder="Username"
+                                            value={userForm.name}
+                                            onChange={(e) => setUserForm({ ...userForm, name: e.target.value })}
+                                        />
+                                        <input
+                                            type="password"
+                                            className="form-control"
+                                            placeholder="Password"
+                                            value={userForm.password}
+                                            onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
+                                        />
+                                        <select
+                                            className="form-control"
+                                            value={userForm.role}
+                                            onChange={(e) => setUserForm({ ...userForm, role: e.target.value })}
+                                        >
+                                            <option value="USER">USER</option>
+                                            <option value="ADMIN">ADMIN</option>
+                                        </select>
+                                        <input
+                                            type="email"
+                                            className="form-control"
+                                            placeholder="Email (optional)"
+                                            value={userForm.email}
+                                            onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
+                                        />
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+                                        <button className="btn btn-primary" onClick={handleCreateUser}>Create</button>
+                                        <button className="btn btn-outline" onClick={() => {
+                                            setShowUserForm(false);
+                                            setUserForm({ name: '', password: '', role: 'USER', email: '' });
+                                        }}>Cancel</button>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div style={{ display: 'grid', gap: '1rem' }}>
+                                {users.map(user => (
+                                    <div key={user._id} style={{
+                                        padding: '1rem',
+                                        background: 'var(--card-bg)',
+                                        borderRadius: '8px',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        border: '1px solid var(--border)'
+                                    }}>
+                                        <div>
+                                            <strong>{user.name}</strong> ({user.role})
+                                            {user.email && <div style={{ fontSize: '0.875rem', color: 'var(--text-light)' }}>{user.email}</div>}
+                                        </div>
+                                        {user.role !== 'ADMIN' && (
+                                            <button
+                                                className="btn btn-danger btn-sm"
+                                                onClick={() => handleDeleteUser(user.name)}
+                                            >
+                                                Delete
+                                            </button>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'sources' && (
+                        <div className="container">
+                            <h2>Source Management</h2>
+                            <div style={{ padding: '1rem', background: 'var(--bg)', borderRadius: '8px', marginBottom: '1rem' }}>
+                                <h3>Add New Source</h3>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+                                    <input
+                                        type="text"
+                                        className="form-control"
+                                        placeholder="Name"
+                                        value={sourceForm.name}
+                                        onChange={(e) => setSourceForm({ ...sourceForm, name: e.target.value })}
+                                    />
+                                    <select
+                                        className="form-control"
+                                        value={sourceForm.type}
+                                        onChange={(e) => setSourceForm({ ...sourceForm, type: e.target.value })}
+                                    >
+                                        <option value="rss">RSS</option>
+                                        <option value="website">Website</option>
+                                    </select>
+                                    <input
+                                        type="text"
+                                        className="form-control"
+                                        placeholder="URL"
+                                        value={sourceForm.url}
+                                        onChange={(e) => setSourceForm({ ...sourceForm, url: e.target.value })}
+                                    />
+                                    <input
+                                        type="text"
+                                        className="form-control"
+                                        placeholder="Category"
+                                        value={sourceForm.category}
+                                        onChange={(e) => setSourceForm({ ...sourceForm, category: e.target.value })}
+                                    />
+                                </div>
+                                <button className="btn btn-primary" style={{ marginTop: '1rem' }} onClick={handleCreateSource}>
+                                    Add Source
+                                </button>
+                            </div>
+
+                            <div style={{ display: 'grid', gap: '1rem' }}>
+                                {sources.map(source => (
+                                    <div key={source._id} style={{
+                                        padding: '1rem',
+                                        background: 'var(--card-bg)',
+                                        borderRadius: '8px',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        border: '1px solid var(--border)'
+                                    }}>
+                                        <div>
+                                            <strong>{source.name}</strong> ({source.type})
+                                            <div style={{ fontSize: '0.875rem', color: 'var(--text-light)' }}>
+                                                {source.url} {source.category && `• ${source.category}`}
+                                            </div>
+                                        </div>
+                                        <button
+                                            className="btn btn-danger btn-sm"
+                                            onClick={() => handleDeleteSource(source._id)}
+                                        >
+                                            Delete
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'categories' && (
+                        <div className="container">
+                            <h2>Category Management</h2>
+                            <p style={{ color: 'var(--text-light)', marginBottom: '1rem' }}>
+                                Manage global categories available to all users
+                            </p>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
+                                {categories.map((cat, index) => (
+                                    <span key={index} style={{
+                                        padding: '0.5rem 1rem',
                                         background: 'var(--bg)',
                                         borderRadius: '20px',
                                         fontSize: '0.875rem',
@@ -1116,7 +1688,7 @@
                                         {cat}
                                         <button
                                             type="button"
-                                            onClick={() => removeCategory(cat)}
+                                            onClick={() => setCategories(categories.filter((_, i) => i !== index))}
                                             style={{
                                                 background: 'none',
                                                 border: 'none',
@@ -1127,80 +1699,25 @@
                                     </span>
                                 ))}
                             </div>
-                        </div>
-
-                        <div className="form-group">
-                            <label>News Sources</label>
-                            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
-                                <select
-                                    className="form-control"
-                                    style={{ flex: '0 0 120px' }}
-                                    value={newSource.type}
-                                    onChange={(e) => setNewSource({ ...newSource, type: e.target.value })}
-                                >
-                                    <option value="rss">RSS</option>
-                                    <option value="website">Website</option>
-                                </select>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
                                 <input
                                     type="text"
                                     className="form-control"
-                                    placeholder="URL"
-                                    value={newSource.url}
-                                    onChange={(e) => setNewSource({ ...newSource, url: e.target.value })}
-                                    style={{ flex: 1 }}
+                                    placeholder="Add category"
+                                    onKeyPress={(e) => {
+                                        if (e.key === 'Enter' && e.target.value) {
+                                            setCategories([...categories, e.target.value]);
+                                            e.target.value = '';
+                                        }
+                                    }}
+                                    style={{ maxWidth: '300px' }}
                                 />
-                                <input
-                                    type="text"
-                                    className="form-control"
-                                    placeholder="Name (optional)"
-                                    value={newSource.name}
-                                    onChange={(e) => setNewSource({ ...newSource, name: e.target.value })}
-                                    style={{ flex: '0 0 150px' }}
-                                />
-                                <input
-                                    type="number"
-                                    className="form-control"
-                                    placeholder="Priority"
-                                    value={newSource.priority}
-                                    onChange={(e) => setNewSource({ ...newSource, priority: parseInt(e.target.value) || 5 })}
-                                    style={{ flex: '0 0 80px' }}
-                                    min="1"
-                                    max="10"
-                                />
-                                <button type="button" className="btn btn-primary" onClick={addSource}>Add</button>
+                                <button className="btn btn-primary" onClick={handleUpdateCategories}>
+                                    Save Categories
+                                </button>
                             </div>
-                            {sources.map((source, index) => (
-                                <div key={index} style={{
-                                    padding: '0.75rem',
-                                    background: 'var(--bg)',
-                                    borderRadius: '6px',
-                                    marginBottom: '0.5rem',
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center'
-                                }}>
-                                    <div>
-                                        <strong>{source.name || source.url}</strong> ({source.type})
-                                        <div style={{ fontSize: '0.8125rem', color: 'var(--text-light)' }}>
-                                            {source.url} • Priority: {source.priority}
-                                        </div>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        className="btn btn-danger btn-sm"
-                                        onClick={() => removeSource(index)}
-                                    >
-                                        Remove
-                                    </button>
-                                </div>
-                            ))}
                         </div>
-
-                        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
-                            <button className="btn btn-outline" onClick={onClose}>Cancel</button>
-                            <button className="btn btn-primary" onClick={handleSave}>Save</button>
-                        </div>
-                    </div>
+                    )}
                 </div>
             );
         }

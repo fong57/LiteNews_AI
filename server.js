@@ -59,12 +59,14 @@ const userRoutes = require('./routes/user.js');
 const preferencesRoutes = require('./routes/preferences.js');
 const newsRoutes = require('./routes/news.js');
 const topicsRoutes = require('./routes/topics.js');
+const adminRoutes = require('./routes/admin.js');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/preferences', preferencesRoutes);
 app.use('/api/news', newsRoutes);
 app.use('/api/topics', topicsRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

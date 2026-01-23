@@ -1,2 +1,4 @@
 node_modules
 .env
+admin-user.json
+admin-user-single.json

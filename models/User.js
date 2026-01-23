@@ -8,10 +8,15 @@ const userSchema = new mongoose.Schema({
     trim: true,
     unique: true
   },
-  age: {
-    type: Number,
-    required: [true, 'Age is required'],
-    min: [1, 'Age must be at least 1']
+  password: {
+    type: String,
+    required: [true, 'Password is required']
+  },
+  role: {
+    type: String,
+    enum: ['ADMIN', 'USER'],
+    default: 'USER',
+    required: true
   },
   email: {
     type: String,
