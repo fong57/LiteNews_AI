@@ -7,6 +7,7 @@ const { categorizeAndGroup } = require('../services/topicGrouper');
 const { rankTopicsByCategory } = require('../services/rankingService');
 const NewsItem = require('../models/NewsItem');
 const Topic = require('../models/Topic');
+const Category = require('../models/Category');
 const { findUserByIdOrName } = require('../utils/userHelper');
 
 router.use(protect);
@@ -62,8 +63,12 @@ router.post('/process', async (req, res) => {
       return res.status(400).json({ status: 'error', message: 'No news items found. Fetch news first.' });
     }
     
-    const user = await findUserByIdOrName(userId);
-    const categories = user?.preferences?.categories || ['general'];
+    // Fetch categories from Category model (global, admin-managed)
+    const categoryDocs = await Category.find({ isActive: true }).sort({ sortOrder: 1 });
+    let categories = categoryDocs.map(c => c.name);
+    if (categories.length === 0) {
+      categories = ['general']; // Fallback if no categories defined
+    }
     
     // Categorize and group
     const topics = await categorizeAndGroup(newsItems, userId, categories);

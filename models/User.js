@@ -31,10 +31,7 @@ const userSchema = new mongoose.Schema({
       name: String,
       priority: { type: Number, default: 5, min: 1, max: 10 }
     }],
-    categories: [{
-      type: String,
-      trim: true
-    }],
+    // Note: categories moved to separate Category model (admin-managed)
     defaultTimeframe: { type: String, default: '24h', enum: ['24h', '7d', '30d'] }
   },
   topicPreferences: {

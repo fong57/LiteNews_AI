@@ -10,7 +10,9 @@
     "reset-db": "node scripts/reset-db.js",
     "create-admin": "node scripts/create-admin.js",
     "generate-admin-json": "node scripts/generate-admin-json.js",
-    "test-perplexity": "node scripts/test-perplexity.js"
+    "test-perplexity": "node scripts/test-perplexity.js",
+    "init-feedsources": "node scripts/init-feedsources.js",
+    "setup": "node scripts/reset-db.js --force --with-admin"
   },
   "keywords": ["news", "ai", "rss", "recommendation"],
   "author": "",

@@ -17,6 +17,7 @@ const User = require('../models/User');
 const NewsItem = require('../models/NewsItem');
 const Topic = require('../models/Topic');
 const FeedSource = require('../models/FeedSource');
+const Category = require('../models/Category');
 
 async function resetDatabase() {
   try {
@@ -68,7 +69,7 @@ async function resetDatabase() {
     
     // Models are already imported at the top, which registers them with mongoose
     // Now we ensure indexes are created by calling createIndexes on each model
-    const modelNames = ['User', 'NewsItem', 'Topic', 'FeedSource'];
+    const modelNames = ['User', 'NewsItem', 'Topic', 'FeedSource', 'Category'];
     
     for (const modelName of modelNames) {
       try {
@@ -117,7 +118,6 @@ async function resetDatabase() {
         role: 'ADMIN',
         preferences: {
           sources: [],
-          categories: ['general', 'technology', 'politics', 'business', 'sports'],
           defaultTimeframe: '24h'
         },
         topicPreferences: {
@@ -129,6 +129,67 @@ async function resetDatabase() {
       console.log('✅ Admin user created!');
       console.log('   Username: admin');
       console.log('   Password: admin123\n');
+
+      // Seed default categories
+      console.log('📂 Seeding default categories...');
+      const defaultCategories = [
+        { name: 'general', displayName: 'General', sortOrder: 0 },
+        { name: 'technology', displayName: 'Technology', sortOrder: 1 },
+        { name: 'politics', displayName: 'Politics', sortOrder: 2 },
+        { name: 'business', displayName: 'Business', sortOrder: 3 },
+        { name: 'sports', displayName: 'Sports', sortOrder: 4 }
+      ];
+
+      for (const cat of defaultCategories) {
+        await Category.create(cat);
+      }
+      console.log('✅ Default categories created!\n');
+
+      // Seed default feed sources
+      console.log('📰 Seeding default feed sources...');
+      const defaultFeedSources = [
+        {
+          name: 'RTHK本地新聞',
+          type: 'rss',
+          url: 'https://rthk.hk/rthk/news/rss/c_expressnews_clocal.xml',
+          remark: '預設',
+          isActive: true
+        },
+        {
+          name: 'RTHK大中華新聞',
+          type: 'rss',
+          url: 'https://rthk.hk/rthk/news/rss/c_expressnews_greaterchina.xml',
+          remark: '預設',
+          isActive: true
+        },
+        {
+          name: 'RTHK國際新聞',
+          type: 'rss',
+          url: 'https://rthk.hk/rthk/news/rss/c_expressnews_cinternational.xml',
+          remark: '預設',
+          isActive: true
+        },
+        {
+          name: 'RTHK財經新聞',
+          type: 'rss',
+          url: 'https://rthk.hk/rthk/news/rss/c_expressnews_cfinance.xml',
+          remark: '預設',
+          isActive: true
+        },
+        {
+          name: 'RTHK體育新聞',
+          type: 'rss',
+          url: 'https://rthk.hk/rthk/news/rss/c_expressnews_csport.xml',
+          remark: '預設',
+          isActive: true
+        }
+      ];
+
+      for (const source of defaultFeedSources) {
+        await FeedSource.create(source);
+        console.log(`   ✓ ${source.name}`);
+      }
+      console.log('✅ Default feed sources created!\n');
     }
 
     // Success message

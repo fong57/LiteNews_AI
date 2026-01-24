@@ -7,6 +7,7 @@ const path = require('path');
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 const User = require('../models/User');
+const Category = require('../models/Category');
 
 const MONGODB_URI = process.env.MONGODB_URI;
 
@@ -39,7 +40,6 @@ async function createAdmin() {
       if (!existingAdmin.preferences) {
         existingAdmin.preferences = {
           sources: [],
-          categories: ['general', 'technology', 'politics', 'business', 'sports'],
           defaultTimeframe: '24h'
         };
       }
@@ -53,7 +53,6 @@ async function createAdmin() {
         role: 'ADMIN',
         preferences: {
           sources: [],
-          categories: ['general', 'technology', 'politics', 'business', 'sports'],
           defaultTimeframe: '24h'
         },
         topicPreferences: {
@@ -64,6 +63,25 @@ async function createAdmin() {
       });
       console.log('✅ Admin user created!\n');
     }
+
+    // Seed default categories (if not already present)
+    console.log('📂 Seeding default categories...');
+    const defaultCategories = [
+      { name: 'general', displayName: 'General', sortOrder: 0 },
+      { name: 'technology', displayName: 'Technology', sortOrder: 1 },
+      { name: 'politics', displayName: 'Politics', sortOrder: 2 },
+      { name: 'business', displayName: 'Business', sortOrder: 3 },
+      { name: 'sports', displayName: 'Sports', sortOrder: 4 }
+    ];
+
+    for (const cat of defaultCategories) {
+      await Category.findOneAndUpdate(
+        { name: cat.name },
+        cat,
+        { upsert: true, new: true }
+      );
+    }
+    console.log('✅ Default categories seeded!\n');
 
     console.log('═══════════════════════════════════════');
     console.log('🔐 Admin Credentials:');

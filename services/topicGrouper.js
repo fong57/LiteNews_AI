@@ -2,14 +2,26 @@
 const { categorizeNews, groupIntoTopics } = require('./llm');
 const NewsItem = require('../models/NewsItem');
 const Topic = require('../models/Topic');
+const Category = require('../models/Category');
 const { findUserByIdOrName } = require('../utils/userHelper');
+
+// Helper function to fetch active categories from Category model
+async function getActiveCategories() {
+  const categoryDocs = await Category.find({ isActive: true }).sort({ sortOrder: 1 });
+  const categories = categoryDocs.map(c => c.name);
+  return categories.length > 0 ? categories : ['general'];
+}
 
 // Categorize and group news items
 async function categorizeAndGroup(newsItems, userId, categories) {
-  const user = await findUserByIdOrName(userId);
+  // Categories are now passed from the caller (fetched from Category model)
+  // Fallback to fetching from Category model if not provided
+  if (!categories || categories.length === 0) {
+    categories = await getActiveCategories();
+  }
   
-  if (!user || !categories || categories.length === 0) {
-    throw new Error('User not found or categories not set');
+  if (categories.length === 0) {
+    throw new Error('No categories available');
   }
   
   // Step 1: Categorize each news item
@@ -68,5 +80,6 @@ async function categorizeAndGroup(newsItems, userId, categories) {
 }
 
 module.exports = {
-  categorizeAndGroup
+  categorizeAndGroup,
+  getActiveCategories
 };

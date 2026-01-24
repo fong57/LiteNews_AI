@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const { protect, adminOnly } = require('../middleware/auth');
 const User = require('../models/User');
+const Category = require('../models/Category');
 const { findUserByIdOrName } = require('../utils/userHelper');
 
 router.use(protect);
@@ -17,11 +18,15 @@ router.get('/', async (req, res) => {
       return res.status(404).json({ status: 'error', message: 'User not found' });
     }
     
+    // Fetch categories from Category model (global, admin-managed)
+    const categoryDocs = await Category.find({ isActive: true }).sort({ sortOrder: 1 });
+    const categories = categoryDocs.map(c => c.displayName || c.name);
+    
     res.json({
       status: 'success',
       data: {
         sources: user.preferences?.sources || [],
-        categories: user.preferences?.categories || [],
+        categories: categories, // Now from Category model
         defaultTimeframe: user.preferences?.defaultTimeframe || '24h'
       }
     });
@@ -70,37 +75,17 @@ router.get('/sources/available', async (req, res) => {
   }
 });
 
-// Update categories (admin only - users can only view available categories)
-router.put('/categories', adminOnly, async (req, res) => {
-  try {
-    const userId = req.user.userId || 'admin';
-    const { categories } = req.body;
-    
-    const user = await findUserByIdOrName(userId);
-    if (!user) {
-      return res.status(404).json({ status: 'error', message: 'User not found' });
-    }
-    
-    if (!user.preferences) user.preferences = {};
-    user.preferences.categories = categories;
-    await user.save();
-    
-    res.json({ status: 'success', message: 'Categories updated', data: user.preferences.categories });
-  } catch (error) {
-    res.status(500).json({ status: 'error', message: error.message });
-  }
-});
+// Note: PUT /categories removed - category management now handled via /api/admin/categories
 
-// Get available categories (for all users to select from)
+// Get available categories (for all users to select from - READ ONLY)
 router.get('/categories/available', async (req, res) => {
   try {
-    // Get categories from admin user or from FeedSource model
-    const adminUser = await User.findOne({ role: 'ADMIN' });
-    const categories = adminUser?.preferences?.categories || [];
+    // Fetch from Category model (global, admin-managed)
+    const categories = await Category.find({ isActive: true }).sort({ sortOrder: 1 });
     
     res.json({
       status: 'success',
-      data: categories
+      data: categories.map(c => c.displayName || c.name)
     });
   } catch (error) {
     res.status(500).json({ status: 'error', message: error.message });

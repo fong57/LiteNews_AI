@@ -18,7 +18,6 @@ async function generateAdminJSON() {
       email: '',
       preferences: {
         sources: [],
-        categories: ['general', 'technology', 'politics', 'business', 'sports'],
         defaultTimeframe: '24h'
       },
       topicPreferences: {
@@ -29,6 +28,15 @@ async function generateAdminJSON() {
       createdAt: new Date(),
       updatedAt: new Date()
     };
+
+    // Create default categories (separate collection)
+    const defaultCategories = [
+      { name: 'general', displayName: 'General', isActive: true, sortOrder: 0, createdAt: new Date(), updatedAt: new Date() },
+      { name: 'technology', displayName: 'Technology', isActive: true, sortOrder: 1, createdAt: new Date(), updatedAt: new Date() },
+      { name: 'politics', displayName: 'Politics', isActive: true, sortOrder: 2, createdAt: new Date(), updatedAt: new Date() },
+      { name: 'business', displayName: 'Business', isActive: true, sortOrder: 3, createdAt: new Date(), updatedAt: new Date() },
+      { name: 'sports', displayName: 'Sports', isActive: true, sortOrder: 4, createdAt: new Date(), updatedAt: new Date() }
+    ];
     
     // Convert to JSON array (MongoDB Compass expects array format)
     const jsonArray = [adminUser];
@@ -56,6 +64,12 @@ async function generateAdminJSON() {
     const singleDocPath = path.join(__dirname, '..', 'admin-user-single.json');
     fs.writeFileSync(singleDocPath, JSON.stringify(adminUser, null, 2));
     console.log(`📄 Alternative single-document format: ${singleDocPath}\n`);
+    
+    // Write categories to separate file
+    const categoriesPath = path.join(__dirname, '..', 'default-categories.json');
+    fs.writeFileSync(categoriesPath, JSON.stringify(defaultCategories, null, 2));
+    console.log('📂 Categories file created: default-categories.json');
+    console.log('   Import into the "categories" collection in MongoDB Compass\n');
     
   } catch (error) {
     console.error('❌ Error generating JSON:', error.message);

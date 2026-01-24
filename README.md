@@ -78,25 +78,28 @@ LiteNews AI is a full-stack application that:
    - `OLLAMA_BASE_URL` - Ollama server URL (if using)
    - `USE_MOCK_LLM` - Set to `true` to use mock mode
 
-4. **Create admin user**
+4. **Initialize the database**
    
-   **Option A: Direct database creation (Recommended)**
+   **Option A: One-step full setup (Recommended)**
+   ```bash
+   npm run setup
+   ```
+   This resets the database and seeds all default data:
+   - Creates admin user
+   - Seeds default categories
+   - Seeds default feed sources (RTHK RSS feeds)
+   
+   **Option B: Create admin user only**
    ```bash
    npm run create-admin
    ```
    This connects to MongoDB and creates the admin user directly.
    
-   **Option B: Generate JSON and import via MongoDB Compass**
+   **Option C: Generate JSON and import via MongoDB Compass**
    ```bash
    npm run generate-admin-json
    ```
    This creates `admin-user.json` in the project root. Then import it manually via MongoDB Compass.
-   
-   **Option C: Reset database with admin user**
-   ```bash
-   npm run reset-db -- --with-admin
-   ```
-   This clears all data and creates the admin user in one step.
    
    **Default admin credentials:**
    - Username: `admin`
@@ -150,8 +153,14 @@ LiteNews AI is a full-stack application that:
 ### Preferences
 - `GET /api/preferences` - Get user preferences (protected)
 - `PUT /api/preferences/sources` - Update news sources (protected)
-- `PUT /api/preferences/categories` - Update categories (protected)
 - `PUT /api/preferences/timeframe` - Update default timeframe (protected)
+- `GET /api/preferences/categories/available` - Get available categories (protected, read-only)
+
+### Categories (Admin Only)
+- `GET /api/admin/categories` - Get all categories (admin only)
+- `POST /api/admin/categories` - Create category (admin only)
+- `PUT /api/admin/categories/:categoryId` - Update category (admin only)
+- `DELETE /api/admin/categories/:categoryId` - Delete category (admin only)
 
 ### News
 - `POST /api/news/fetch` - Fetch news from configured sources (protected)
@@ -178,7 +187,8 @@ LiteNews_AI/
 │   ├── User.js              # User model with preferences
 │   ├── NewsItem.js          # News article model
 │   ├── Topic.js             # Topic model
-│   └── FeedSource.js        # Feed source model
+│   ├── FeedSource.js        # Feed source model
+│   └── Category.js          # Category model
 │
 ├── routes/                   # Express routes
 │   ├── auth.js              # Authentication routes
@@ -209,11 +219,11 @@ LiteNews_AI/
 │   └── style.css            # Legacy styles (not used)
 │
 ├── scripts/                  # Utility scripts
-│   ├── add-user.js          # User creation script
-│   ├── test-db.js           # Database test script
-│   ├── reset-db.js          # Database reset script
+│   ├── reset-db.js          # Database reset + seeding script
 │   ├── create-admin.js      # Create admin user directly in database
-│   └── generate-admin-json.js # Generate admin user JSON for import
+│   ├── generate-admin-json.js # Generate admin user JSON for import
+│   ├── init-feedsources.js  # Seed default feed sources
+│   └── test-perplexity.js   # Test Perplexity API connection
 │
 ├── admin-user.json          # Admin user JSON (generated, for MongoDB Compass import)
 └── admin-user-single.json   # Alternative single-document format
@@ -234,11 +244,12 @@ No build step required - React and Babel are loaded via CDN.
 
 ## 🔄 Workflow
 
-1. **Setup**: Create admin user and configure preferences
-2. **Fetch**: Click "Fetch News" to retrieve articles from sources
-3. **Process**: Click "Process Topics" to categorize and group articles
-4. **Browse**: View topics by category, read articles, provide feedback
-5. **Personalize**: System learns from your feedback to improve rankings
+1. **Setup**: Run `npm run setup` to initialize database with admin user and default data
+2. **Configure**: Login and customize preferences (sources, categories, timeframe)
+3. **Fetch**: Click "Fetch News" to retrieve articles from sources
+4. **Process**: Click "Process Topics" to categorize and group articles
+5. **Browse**: View topics by category, read articles, provide feedback
+6. **Personalize**: System learns from your feedback to improve rankings
 
 ## 🧪 Development
 
@@ -282,20 +293,28 @@ LLM_MODE=mock
 The system automatically falls back to mock mode if the configured provider is unavailable.
 
 ### Database Scripts
+
+| Script | Description |
+|--------|-------------|
+| `npm run setup` | **One-step full setup**: reset DB + admin + categories + feed sources |
+| `npm run reset-db` | Reset database only (with confirmation prompt) |
+| `npm run reset-db -- --force` | Reset database without confirmation |
+| `npm run reset-db -- --with-admin` | Reset + create admin + seed categories + seed feeds |
+| `npm run create-admin` | Create admin user only (if DB already has data) |
+| `npm run generate-admin-json` | Generate admin JSON for MongoDB Compass import |
+| `npm run init-feedsources` | Seed feed sources only (without reset) |
+| `npm run init-feedsources -- --force` | Replace existing feed sources |
+| `npm run test-perplexity` | Test Perplexity API connection |
+
+**Quick Start:**
 ```bash
-# Create admin user directly in database
-npm run create-admin
+# Fresh installation - one command does it all
+npm run setup
 
-# Generate admin user JSON for MongoDB Compass import
-npm run generate-admin-json
-
-# Reset database (clears all data and recreates indexes)
-npm run reset-db
-
-# Reset database AND create admin user in one step
-npm run reset-db -- --with-admin
-# or with force flag (no confirmation prompt)
-npm run reset-db -- --force --with-admin
+# Or step by step:
+npm run reset-db -- --force    # Clear database
+npm run create-admin           # Create admin user
+npm run init-feedsources       # Seed feed sources
 ```
 
 ## 🔒 Security
@@ -322,8 +341,8 @@ npm run reset-db -- --force --with-admin
 - Verify SSL/TLS settings
 
 ### "User not found" Errors
-- Make sure admin user exists: Generate and import `admin-user.json` via MongoDB Compass
-- Run `npm run generate-admin-json` to create the JSON file
+- Make sure admin user exists: Run `npm run setup` or `npm run create-admin`
+- Alternatively, run `npm run generate-admin-json` to create JSON for MongoDB Compass import
 - Check JWT token is valid and not expired
 
 ### LLM Errors

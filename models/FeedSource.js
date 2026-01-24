@@ -16,7 +16,7 @@ const feedSourceSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  category: {
+  remark: {
     type: String,
     trim: true
   },

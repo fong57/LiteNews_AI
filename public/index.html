@@ -1091,11 +1091,10 @@
 
         function PreferencesModal({ preferences, onClose, onSave, userRole }) {
             const [sources, setSources] = useState(preferences.sources || []);
-            const [categories, setCategories] = useState(preferences.categories || []);
+            const categories = preferences.categories || []; // Read-only, managed via Admin Panel
             const [availableSources, setAvailableSources] = useState([]);
             const [defaultTimeframe, setDefaultTimeframe] = useState(preferences.defaultTimeframe || '24h');
             const [newSource, setNewSource] = useState({ type: 'rss', url: '', name: '', priority: 5 });
-            const [newCategory, setNewCategory] = useState('');
             const isAdmin = userRole === 'ADMIN';
 
             // Load available sources on mount
@@ -1134,17 +1133,8 @@
                     body: JSON.stringify({ sources })
                 });
 
-                // Update categories (admin only)
-                if (isAdmin) {
-                    await fetch('/api/preferences/categories', {
-                        method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`
-                        },
-                        body: JSON.stringify({ categories })
-                    });
-                }
+                // Note: Categories are now managed via Admin Panel (Category model)
+                // Users cannot modify categories from preferences
 
                 // Update timeframe
                 await fetch('/api/preferences/timeframe', {
@@ -1170,17 +1160,6 @@
                 setSources(sources.filter((_, i) => i !== index));
             };
 
-            const addCategory = () => {
-                if (newCategory && !categories.includes(newCategory)) {
-                    setCategories([...categories, newCategory]);
-                    setNewCategory('');
-                }
-            };
-
-            const removeCategory = (cat) => {
-                setCategories(categories.filter(c => c !== cat));
-            };
-
             return (
                 <div className="modal-overlay" onClick={onClose}>
                     <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -1204,61 +1183,22 @@
 
                         <div className="form-group">
                             <label>
-                                Categories {!isAdmin && <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>(Admin only)</span>}
+                                Categories <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
+                                    {isAdmin ? '(Manage in Admin Panel)' : '(Read only)'}
+                                </span>
                             </label>
-                            {isAdmin ? (
-                                <>
-                                    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                                        <input
-                                            type="text"
-                                            className="form-control"
-                                            placeholder="Add category"
-                                            value={newCategory}
-                                            onChange={(e) => setNewCategory(e.target.value)}
-                                            onKeyPress={(e) => e.key === 'Enter' && addCategory()}
-                                        />
-                                        <button type="button" className="btn btn-primary" onClick={addCategory}>Add</button>
-                                    </div>
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                                        {categories.map(cat => (
-                                            <span key={cat} style={{
-                                                padding: '0.25rem 0.75rem',
-                                                background: 'var(--bg)',
-                                                borderRadius: '20px',
-                                                fontSize: '0.875rem',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '0.5rem'
-                                            }}>
-                                                {cat}
-                                                <button
-                                                    type="button"
-                                                    onClick={() => removeCategory(cat)}
-                                                    style={{
-                                                        background: 'none',
-                                                        border: 'none',
-                                                        cursor: 'pointer',
-                                                        fontSize: '1rem'
-                                                    }}
-                                                >×</button>
-                                            </span>
-                                        ))}
-                                    </div>
-                                </>
-                            ) : (
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                                    {categories.map(cat => (
-                                        <span key={cat} style={{
-                                            padding: '0.25rem 0.75rem',
-                                            background: 'var(--bg)',
-                                            borderRadius: '20px',
-                                            fontSize: '0.875rem'
-                                        }}>
-                                            {cat}
-                                        </span>
-                                    ))}
-                                </div>
-                            )}
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                {categories.map(cat => (
+                                    <span key={cat} style={{
+                                        padding: '0.25rem 0.75rem',
+                                        background: 'var(--bg)',
+                                        borderRadius: '20px',
+                                        fontSize: '0.875rem'
+                                    }}>
+                                        {cat}
+                                    </span>
+                                ))}
+                            </div>
                         </div>
 
                         <div className="form-group">
@@ -1326,7 +1266,7 @@
             const [showUserForm, setShowUserForm] = useState(false);
             const [editingUser, setEditingUser] = useState(null);
             const [userForm, setUserForm] = useState({ name: '', password: '', role: 'USER', email: '' });
-            const [sourceForm, setSourceForm] = useState({ name: '', type: 'rss', url: '', category: '' });
+            const [sourceForm, setSourceForm] = useState({ name: '', type: 'rss', url: '', remark: '' });
 
             useEffect(() => {
                 loadData();
@@ -1355,13 +1295,13 @@
                         setSources(sourcesData.data || []);
                     }
 
-                    // Load categories
-                    const categoriesRes = await fetch('/api/preferences', {
+                    // Load categories from admin endpoint (Category model)
+                    const categoriesRes = await fetch('/api/admin/categories', {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
                     if (categoriesRes.ok) {
                         const categoriesData = await categoriesRes.json();
-                        setCategories(categoriesData.data.categories || []);
+                        setCategories(categoriesData.data || []);
                     }
                 } catch (error) {
                     showMessage('Failed to load data: ' + error.message, 'error');
@@ -1432,7 +1372,7 @@
 
                     if (res.ok) {
                         showMessage('Source created successfully', 'success');
-                        setSourceForm({ name: '', type: 'rss', url: '', category: '' });
+                        setSourceForm({ name: '', type: 'rss', url: '', remark: '' });
                         loadData();
                     } else {
                         const data = await res.json();
@@ -1465,23 +1405,49 @@
                 }
             };
 
-            const handleUpdateCategories = async () => {
+            const handleAddCategory = async (categoryName) => {
+                if (!categoryName.trim()) return;
                 try {
                     const token = localStorage.getItem('jwt_token');
-                    const res = await fetch('/api/preferences/categories', {
-                        method: 'PUT',
+                    const res = await fetch('/api/admin/categories', {
+                        method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                             'Authorization': `Bearer ${token}`
                         },
-                        body: JSON.stringify({ categories })
+                        body: JSON.stringify({ 
+                            name: categoryName.toLowerCase().trim(),
+                            displayName: categoryName.trim()
+                        })
                     });
 
                     if (res.ok) {
-                        showMessage('Categories updated successfully', 'success');
+                        showMessage('Category added successfully', 'success');
+                        loadData();
                     } else {
                         const data = await res.json();
-                        showMessage(data.message || 'Failed to update categories', 'error');
+                        showMessage(data.message || 'Failed to add category', 'error');
+                    }
+                } catch (error) {
+                    showMessage('Error: ' + error.message, 'error');
+                }
+            };
+
+            const handleDeleteCategory = async (categoryId) => {
+                if (!confirm('Are you sure you want to delete this category?')) return;
+                try {
+                    const token = localStorage.getItem('jwt_token');
+                    const res = await fetch(`/api/admin/categories/${categoryId}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+
+                    if (res.ok) {
+                        showMessage('Category deleted successfully', 'success');
+                        loadData();
+                    } else {
+                        const data = await res.json();
+                        showMessage(data.message || 'Failed to delete category', 'error');
                     }
                 } catch (error) {
                     showMessage('Error: ' + error.message, 'error');
@@ -1629,9 +1595,9 @@
                                     <input
                                         type="text"
                                         className="form-control"
-                                        placeholder="Category"
-                                        value={sourceForm.category}
-                                        onChange={(e) => setSourceForm({ ...sourceForm, category: e.target.value })}
+                                        placeholder="Remark"
+                                        value={sourceForm.remark}
+                                        onChange={(e) => setSourceForm({ ...sourceForm, remark: e.target.value })}
                                     />
                                 </div>
                                 <button className="btn btn-primary" style={{ marginTop: '1rem' }} onClick={handleCreateSource}>
@@ -1653,7 +1619,7 @@
                                         <div>
                                             <strong>{source.name}</strong> ({source.type})
                                             <div style={{ fontSize: '0.875rem', color: 'var(--text-light)' }}>
-                                                {source.url} {source.category && `• ${source.category}`}
+                                                {source.url} {source.remark && `• ${source.remark}`}
                                             </div>
                                         </div>
                                         <button
@@ -1675,20 +1641,21 @@
                                 Manage global categories available to all users
                             </p>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
-                                {categories.map((cat, index) => (
-                                    <span key={index} style={{
+                                {categories.map((cat) => (
+                                    <span key={cat._id} style={{
                                         padding: '0.5rem 1rem',
-                                        background: 'var(--bg)',
+                                        background: cat.isActive ? 'var(--bg)' : 'var(--border)',
                                         borderRadius: '20px',
                                         fontSize: '0.875rem',
                                         display: 'flex',
                                         alignItems: 'center',
-                                        gap: '0.5rem'
+                                        gap: '0.5rem',
+                                        opacity: cat.isActive ? 1 : 0.6
                                     }}>
-                                        {cat}
+                                        {cat.displayName || cat.name}
                                         <button
                                             type="button"
-                                            onClick={() => setCategories(categories.filter((_, i) => i !== index))}
+                                            onClick={() => handleDeleteCategory(cat._id)}
                                             style={{
                                                 background: 'none',
                                                 border: 'none',
@@ -1702,18 +1669,25 @@
                             <div style={{ display: 'flex', gap: '0.5rem' }}>
                                 <input
                                     type="text"
+                                    id="newCategoryInput"
                                     className="form-control"
                                     placeholder="Add category"
                                     onKeyPress={(e) => {
                                         if (e.key === 'Enter' && e.target.value) {
-                                            setCategories([...categories, e.target.value]);
+                                            handleAddCategory(e.target.value);
                                             e.target.value = '';
                                         }
                                     }}
                                     style={{ maxWidth: '300px' }}
                                 />
-                                <button className="btn btn-primary" onClick={handleUpdateCategories}>
-                                    Save Categories
+                                <button className="btn btn-primary" onClick={() => {
+                                    const input = document.getElementById('newCategoryInput');
+                                    if (input.value) {
+                                        handleAddCategory(input.value);
+                                        input.value = '';
+                                    }
+                                }}>
+                                    Add Category
                                 </button>
                             </div>
                         </div>
