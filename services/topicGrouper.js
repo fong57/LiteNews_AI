@@ -1,5 +1,5 @@
 // services/topicGrouper.js
-const { categorizeNews, groupIntoTopics } = require('./llmService');
+const { categorizeNews, groupIntoTopics } = require('./llm');
 const NewsItem = require('../models/NewsItem');
 const Topic = require('../models/Topic');
 const { findUserByIdOrName } = require('../utils/userHelper');

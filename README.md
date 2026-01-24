@@ -188,10 +188,15 @@ LiteNews_AI/
 │   └── topics.js            # Topic routes
 │
 ├── services/                 # Business logic
+│   ├── llm/                 # LLM provider system
+│   │   ├── index.js         # Provider switch/router
+│   │   └── providers/       # Individual LLM providers
+│   │       ├── mock.js      # Keyword-based (no API needed)
+│   │       ├── ollama.js    # Local Ollama LLM
+│   │       └── perplexity.js # Perplexity AI API
 │   ├── newsFetcher.js       # RSS/web scraping service
 │   ├── topicGrouper.js      # Topic grouping service
-│   ├── rankingService.js    # Topic ranking service
-│   └── llmService.js        # LLM/AI service (Ollama or mock)
+│   └── rankingService.js    # Topic ranking service
 │
 ├── middleware/               # Express middleware
 │   └── auth.js              # JWT authentication middleware
@@ -243,17 +248,41 @@ npm run dev_start
 ```
 Uses `nodemon` for auto-reload on file changes.
 
-### Mock LLM Mode
-Set `USE_MOCK_LLM=true` in `.env` to use mock AI responses without Ollama. Useful for:
-- Testing without LLM setup
-- Development without GPU
-- Faster iteration
+### LLM Provider Configuration
+
+Set `LLM_MODE` in `.env` to choose your AI backend:
+
+| Mode | Description | Requirements |
+|------|-------------|--------------|
+| `mock` | Keyword-based categorization (default) | None |
+| `perplexity` | Perplexity AI API | `PERPLEXITY_API_KEY` |
+| `ollama` | Local Ollama LLM | Ollama running locally |
+
+**Example `.env` configuration:**
+```bash
+# Use Perplexity API
+LLM_MODE=perplexity
+PERPLEXITY_API_KEY=pplx-xxxxxxxxxxxxxxxxxxxx
+PERPLEXITY_MODEL=llama-3.1-sonar-small-128k-online
+
+# Or use local Ollama
+LLM_MODE=ollama
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.2
+
+# Or use mock mode (no AI, keyword-based)
+LLM_MODE=mock
+```
+
+**Perplexity Models:**
+- `llama-3.1-sonar-small-128k-online` — Cheapest ($0.2/1M tokens)
+- `llama-3.1-sonar-large-128k-online` — Better quality ($1/1M tokens)
+- `llama-3.1-sonar-huge-128k-online` — Best quality ($5/1M tokens)
+
+The system automatically falls back to mock mode if the configured provider is unavailable.
 
 ### Database Scripts
 ```bash
-# Test database connection
-node scripts/test-db.js
-
 # Create admin user directly in database
 npm run create-admin
 

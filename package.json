@@ -9,7 +9,8 @@
     "dev_start": "nodemon server.js",
     "reset-db": "node scripts/reset-db.js",
     "create-admin": "node scripts/create-admin.js",
-    "generate-admin-json": "node scripts/generate-admin-json.js"
+    "generate-admin-json": "node scripts/generate-admin-json.js",
+    "test-perplexity": "node scripts/test-perplexity.js"
   },
   "keywords": ["news", "ai", "rss", "recommendation"],
   "author": "",
