@@ -4,7 +4,9 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const { subHours, subDays } = require('date-fns');
 const NewsItem = require('../models/NewsItem');
+const FeedSource = require('../models/FeedSource');
 const { findUserByIdOrName } = require('../utils/userHelper');
+const { generateNewsEmbedding, isAvailable: isEmbeddingAvailable } = require('./embedding');
 
 const parser = new Parser({
   timeout: 10000,
@@ -111,22 +113,40 @@ async function fetchWebPage(url, sourceName, priority) {
 async function fetchNewsForUser(userId, timeframe = '24h') {
   const user = await findUserByIdOrName(userId);
   
-  if (!user || !user.preferences) {
-    throw new Error('User not found or preferences not set');
+  if (!user) {
+    throw new Error('User not found');
   }
   
   const sinceDate = parseTimeframe(timeframe);
   const allItems = [];
   
-  // Fetch from user's priority sources first
-  const sortedSources = [...(user.preferences.sources || [])].sort((a, b) => b.priority - a.priority);
+  // Get sources: use user's custom sources if available, otherwise use global FeedSources
+  let sources = user.preferences?.sources || [];
+  
+  if (sources.length === 0) {
+    // Fall back to global FeedSources
+    console.log('📡 No user sources configured, using global FeedSources...');
+    const globalSources = await FeedSource.find({ isActive: true });
+    sources = globalSources.map(s => ({
+      type: s.type,
+      url: s.url,
+      name: s.name,
+      priority: 5
+    }));
+    console.log(`   Found ${sources.length} global feed source(s)`);
+  }
+  
+  // Sort by priority (higher priority first)
+  const sortedSources = [...sources].sort((a, b) => (b.priority || 5) - (a.priority || 5));
   
   for (const source of sortedSources) {
     try {
       let items = [];
       
       if (source.type === 'rss' && source.url) {
+        console.log(`   Fetching RSS: ${source.name || source.url}`);
         items = await fetchRSSFeed(source.url, source.name || source.url, source.priority || 5);
+        console.log(`   ✓ Got ${items.length} items from ${source.name || source.url}`);
       } else if (source.type === 'website' && source.url) {
         const item = await fetchWebPage(source.url, source.name || source.url, source.priority || 5);
         if (item) items = [item];
@@ -153,19 +173,48 @@ async function fetchNewsForUser(userId, timeframe = '24h') {
     }
   }
   
-  // Save to database
+  // Save to database with embeddings
   const savedItems = [];
+  const newItems = []; // Track items that need embeddings
+  
+  // First pass: save items without embeddings
   for (const item of uniqueItems) {
     try {
       const existing = await NewsItem.findOne({ url: item.url });
       if (!existing) {
         const newsItem = await NewsItem.create(item);
         savedItems.push(newsItem);
+        newItems.push(newsItem);
       } else {
         savedItems.push(existing);
+        // Add existing items without embeddings to the list
+        if (!existing.embedding || existing.embedding.length === 0) {
+          newItems.push(existing);
+        }
       }
     } catch (error) {
       console.error(`Error saving news item: ${error.message}`);
+    }
+  }
+  
+  // Second pass: generate embeddings for new items
+  if (newItems.length > 0) {
+    console.log(`🧠 Generating embeddings for ${newItems.length} news items...`);
+    
+    const embeddingAvailable = await isEmbeddingAvailable();
+    if (embeddingAvailable) {
+      for (const item of newItems) {
+        try {
+          const embedding = await generateNewsEmbedding(item);
+          item.embedding = embedding;
+          await item.save();
+        } catch (error) {
+          console.error(`   ⚠️ Failed to generate embedding for "${item.title.substring(0, 50)}...": ${error.message}`);
+        }
+      }
+      console.log(`   ✅ Embeddings generated for ${newItems.length} items`);
+    } else {
+      console.log(`   ⚠️ Embedding service not available, skipping embedding generation`);
     }
   }
   

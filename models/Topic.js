@@ -21,6 +21,11 @@ const topicSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'NewsItem'
   }],
+  tags: [{
+    type: String,
+    lowercase: true,
+    trim: true
+  }],
   discussionScore: {
     type: Number,
     default: 0

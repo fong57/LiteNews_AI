@@ -31,17 +31,30 @@ router.post('/fetch', async (req, res) => {
 });
 
 // Get news items
+// Note: Category filtering now works via Topic association, not direct NewsItem.category
 router.get('/items', async (req, res) => {
   try {
-    const { category, timeframe = '24h' } = req.query;
+    const { category, topicId, timeframe = '24h' } = req.query;
     const sinceDate = parseTimeframe(timeframe);
     
-    const query = { publishedAt: { $gte: sinceDate } };
-    if (category) query.category = category;
+    let query = { publishedAt: { $gte: sinceDate } };
+    
+    // Filter by specific topic
+    if (topicId) {
+      query.topicId = topicId;
+    }
+    // Filter by category via topic association
+    else if (category) {
+      // Find topics in this category, then get their news items
+      const topicsInCategory = await Topic.find({ category }).select('_id');
+      const topicIds = topicsInCategory.map(t => t._id);
+      query.topicId = { $in: topicIds };
+    }
     
     const items = await NewsItem.find(query)
       .sort({ publishedAt: -1 })
-      .limit(100);
+      .limit(100)
+      .select('-embedding'); // Exclude large embedding field from response
     
     res.json({ status: 'success', count: items.length, data: items });
   } catch (error) {

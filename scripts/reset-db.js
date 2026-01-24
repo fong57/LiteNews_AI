@@ -130,14 +130,14 @@ async function resetDatabase() {
       console.log('   Username: admin');
       console.log('   Password: admin123\n');
 
-      // Seed default categories
+      // Seed default categories (Traditional Chinese)
       console.log('📂 Seeding default categories...');
       const defaultCategories = [
-        { name: 'general', displayName: 'General', sortOrder: 0 },
-        { name: 'technology', displayName: 'Technology', sortOrder: 1 },
-        { name: 'politics', displayName: 'Politics', sortOrder: 2 },
-        { name: 'business', displayName: 'Business', sortOrder: 3 },
-        { name: 'sports', displayName: 'Sports', sortOrder: 4 }
+        { name: 'general', displayName: '綜合', sortOrder: 0 },
+        { name: 'technology', displayName: '科技', sortOrder: 1 },
+        { name: 'politics', displayName: '政治', sortOrder: 2 },
+        { name: 'business', displayName: '財經', sortOrder: 3 },
+        { name: 'sports', displayName: '體育', sortOrder: 4 }
       ];
 
       for (const cat of defaultCategories) {
@@ -197,11 +197,13 @@ async function resetDatabase() {
     console.log('✅ Database reset completed successfully!');
     console.log('═══════════════════════════════════════');
     console.log('\n📝 Next steps:');
+    let step = 1;
     if (!withAdminFlag) {
-      console.log('   1. Run: npm run create-admin');
+      console.log(`   ${step++}. Run: npm run create-admin`);
     }
-    console.log(`   ${withAdminFlag ? '1' : '2'}. Start the server: npm start`);
-    console.log(`   ${withAdminFlag ? '2' : '3'}. Login and configure preferences\n`);
+    console.log(`   ${step++}. Setup vector search index: npm run setup-vector-index`);
+    console.log(`   ${step++}. Start the server: npm start`);
+    console.log(`   ${step++}. Login and configure preferences\n`);
 
     process.exit(0);
   } catch (error) {

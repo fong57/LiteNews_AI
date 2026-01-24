@@ -34,10 +34,11 @@ const newsItemSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
+  // DEPRECATED: Category is now assigned at Topic level, not NewsItem level.
+  // Kept for backward compatibility but no longer actively used.
   category: {
     type: String,
-    trim: true,
-    index: true
+    trim: true
   },
   topicId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -55,8 +56,13 @@ const newsItemSchema = new mongoose.Schema({
 
 // Indexes for performance
 newsItemSchema.index({ publishedAt: -1 });
-newsItemSchema.index({ category: 1, publishedAt: -1 });
 newsItemSchema.index({ topicId: 1 });
+newsItemSchema.index({ topicId: 1, publishedAt: -1 }); // For filtering items by topic + time
+newsItemSchema.index({ 'embedding': 1 }, { sparse: true }); // Sparse index for items with embeddings
+
+// NOTE: For MongoDB Atlas Vector Search, you must also create a vector search index
+// named "news_embedding_index" in Atlas UI or via the createSearchIndexes command.
+// See scripts/setup-vector-index.js for setup instructions.
 
 const NewsItem = mongoose.models.NewsItem || mongoose.model('NewsItem', newsItemSchema);
 module.exports = NewsItem;

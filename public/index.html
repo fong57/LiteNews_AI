@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LiteNews AI - Personalized News Aggregation</title>
+    <title>LiteNews AI - 個人化新聞聚合</title>
     <!-- React & Babel CDN -->
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
@@ -561,8 +561,15 @@
                     if (res.ok) {
                         const data = await res.json();
                         setPreferences(data.data);
-                        setCategories(data.data.categories || []);
+                        // Categories are now objects with name and displayName
+                        const cats = data.data.categories || [];
+                        setCategories(cats);
                         setTimeframe(data.data.defaultTimeframe || '24h');
+                        // Auto-select first category if none selected
+                        if (cats.length > 0 && !selectedCategory) {
+                            const firstName = typeof cats[0] === 'object' ? cats[0].name : cats[0];
+                            setSelectedCategory(firstName);
+                        }
                     }
                 } catch (error) {
                     console.error('Failed to load preferences:', error);
@@ -591,13 +598,13 @@
                         setIsLoggedIn(true);
                         setUserRole(data.user.role);
                         setCurrentUser(data.user);
-                        showMessage('Login successful!', 'success');
+                        showMessage('登入成功！', 'success');
                         loadPreferences();
                     } else {
-                        showMessage(data.message || 'Login failed', 'error');
+                        showMessage(data.message || '登入失敗', 'error');
                     }
                 } catch (error) {
-                    showMessage('Login error: ' + error.message, 'error');
+                    showMessage('登入錯誤: ' + error.message, 'error');
                 } finally {
                     setLoading(false);
                 }
@@ -611,7 +618,7 @@
                 setUserRole(null);
                 setCurrentUser(null);
                 setTopics([]);
-                showMessage('Logged out successfully', 'success');
+                showMessage('已成功登出', 'success');
             };
 
             // Fetch news
@@ -630,14 +637,14 @@
 
                     const data = await res.json();
                     if (res.ok) {
-                        showMessage(`Fetched ${data.data.count} news items`, 'success');
+                        showMessage(`已獲取 ${data.data.count} 則新聞`, 'success');
                         // Auto-process after fetching
                         setTimeout(() => handleProcessNews(), 1000);
                     } else {
-                        showMessage(data.message || 'Failed to fetch news', 'error');
+                        showMessage(data.message || '獲取新聞失敗', 'error');
                     }
                 } catch (error) {
-                    showMessage('Fetch error: ' + error.message, 'error');
+                    showMessage('獲取錯誤: ' + error.message, 'error');
                 } finally {
                     setLoading(false);
                 }
@@ -659,13 +666,13 @@
 
                     const data = await res.json();
                     if (res.ok) {
-                        showMessage(`Created ${data.data.topics.length} topics`, 'success');
+                        showMessage(`已建立 ${data.data.topics.length} 個主題`, 'success');
                         loadTopics();
                     } else {
-                        showMessage(data.message || 'Failed to process news', 'error');
+                        showMessage(data.message || '處理新聞失敗', 'error');
                     }
                 } catch (error) {
-                    showMessage('Process error: ' + error.message, 'error');
+                    showMessage('處理錯誤: ' + error.message, 'error');
                 } finally {
                     setLoading(false);
                 }
@@ -673,10 +680,12 @@
 
             // Load topics
             const loadTopics = async (category = selectedCategory) => {
-                if (!category && categories.length > 0) {
-                    category = categories[0];
+                // Get category name (handle both string and object formats)
+                let categoryName = category;
+                if (!categoryName && categories.length > 0) {
+                    categoryName = typeof categories[0] === 'object' ? categories[0].name : categories[0];
                 }
-                if (!category) {
+                if (!categoryName) {
                     setTopics([]);
                     return;
                 }
@@ -684,7 +693,7 @@
                 setLoading(true);
                 try {
                     const token = localStorage.getItem('jwt_token');
-                    const res = await fetch(`/api/topics?category=${encodeURIComponent(category)}&limit=20`, {
+                    const res = await fetch(`/api/topics?category=${encodeURIComponent(categoryName)}&limit=20`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
 
@@ -692,10 +701,10 @@
                     if (res.ok) {
                         setTopics(data.data || []);
                     } else {
-                        showMessage(data.message || 'Failed to load topics', 'error');
+                        showMessage(data.message || '載入主題失敗', 'error');
                     }
                 } catch (error) {
-                    showMessage('Load error: ' + error.message, 'error');
+                    showMessage('載入錯誤: ' + error.message, 'error');
                 } finally {
                     setLoading(false);
                 }
@@ -715,11 +724,11 @@
                     });
 
                     if (res.ok) {
-                        showMessage('Feedback recorded!', 'success');
+                        showMessage('已記錄回饋！', 'success');
                         loadTopics();
                     }
                 } catch (error) {
-                    showMessage('Feedback error: ' + error.message, 'error');
+                    showMessage('回饋錯誤: ' + error.message, 'error');
                 }
             };
 
@@ -797,6 +806,7 @@
                             topics={topics}
                             loading={loading}
                             selectedCategory={selectedCategory}
+                            categories={categories}
                             onFeedback={handleFeedback}
                         />
                     </div>
@@ -811,7 +821,7 @@
                                 setCategories(newPrefs.categories || []);
                                 setTimeframe(newPrefs.defaultTimeframe || '24h');
                                 setShowPreferences(false);
-                                showMessage('Preferences saved!', 'success');
+                                showMessage('偏好設定已儲存！', 'success');
                             }}
                         />
                     )}
@@ -824,7 +834,7 @@
                 <div className="login-container">
                     <h2>LiteNews AI</h2>
                     <p style={{ textAlign: 'center', color: 'var(--text-light)', marginBottom: '1.5rem' }}>
-                        AI-Powered News Aggregation
+                        AI 驅動的新聞聚合
                     </p>
                     {message && (
                         <div className={`message message-${message.type}`}>
@@ -833,7 +843,7 @@
                     )}
                     <form onSubmit={onLogin}>
                         <div className="form-group">
-                            <label htmlFor="username">Username</label>
+                            <label htmlFor="username">使用者名稱</label>
                             <input
                                 type="text"
                                 id="username"
@@ -845,7 +855,7 @@
                             />
                         </div>
                         <div className="form-group">
-                            <label htmlFor="password">Password</label>
+                            <label htmlFor="password">密碼</label>
                             <input
                                 type="password"
                                 id="password"
@@ -857,7 +867,7 @@
                             />
                         </div>
                         <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
-                            {loading ? 'Logging in...' : 'Login'}
+                            {loading ? '登入中...' : '登入'}
                         </button>
                     </form>
                 </div>
@@ -871,19 +881,19 @@
                     <div className="header-actions">
                         {currentUser && (
                             <span style={{ marginRight: '1rem', color: 'var(--text-light)' }}>
-                                {currentUser.name} ({userRole})
+                                {currentUser.name} ({userRole === 'ADMIN' ? '管理員' : '使用者'})
                             </span>
                         )}
                         {userRole === 'ADMIN' && (
                             <button className="btn btn-outline btn-sm" onClick={onAdminPanel}>
-                                👤 Admin Panel
+                                👤 管理面板
                             </button>
                         )}
                         <button className="btn btn-outline btn-sm" onClick={onPreferences}>
-                            ⚙️ Preferences
+                            ⚙️ 偏好設定
                         </button>
                         <button className="btn btn-secondary btn-sm" onClick={onLogout}>
-                            Logout
+                            登出
                         </button>
                     </div>
                 </div>
@@ -891,31 +901,35 @@
         }
 
         function ControlPanel({ categories, selectedCategory, onCategoryChange, timeframe, onTimeframeChange, onFetchNews, onProcessNews, loading }) {
+            // Helper to get category name and display name
+            const getCatName = (cat) => typeof cat === 'object' ? cat.name : cat;
+            const getCatDisplay = (cat) => typeof cat === 'object' ? cat.displayName : cat;
+            
             return (
                 <div className="control-panel">
                     <div className="control-group">
-                        <label>Category:</label>
+                        <label>分類：</label>
                         <select
                             className="select"
                             value={selectedCategory}
                             onChange={(e) => onCategoryChange(e.target.value)}
                             disabled={loading || categories.length === 0}
                         >
-                            <option value="">Select category...</option>
+                            <option value="">選擇分類...</option>
                             {categories.map(cat => (
-                                <option key={cat} value={cat}>{cat}</option>
+                                <option key={getCatName(cat)} value={getCatName(cat)}>{getCatDisplay(cat)}</option>
                             ))}
                         </select>
-                        <label>Timeframe:</label>
+                        <label>時間範圍：</label>
                         <select
                             className="select"
                             value={timeframe}
                             onChange={(e) => onTimeframeChange(e.target.value)}
                             disabled={loading}
                         >
-                            <option value="24h">Last 24 hours</option>
-                            <option value="7d">Last 7 days</option>
-                            <option value="30d">Last 30 days</option>
+                            <option value="24h">過去 24 小時</option>
+                            <option value="7d">過去 7 天</option>
+                            <option value="30d">過去 30 天</option>
                         </select>
                     </div>
                     <div className="control-group">
@@ -924,26 +938,35 @@
                             onClick={onFetchNews}
                             disabled={loading}
                         >
-                            📥 Fetch News
+                            📥 獲取新聞
                         </button>
                         <button
                             className="btn btn-success"
                             onClick={onProcessNews}
                             disabled={loading}
                         >
-                            🤖 Process Topics
+                            🤖 處理主題
                         </button>
                     </div>
                 </div>
             );
         }
 
-        function TopicsSection({ topics, loading, selectedCategory, onFeedback }) {
+        function TopicsSection({ topics, loading, selectedCategory, categories, onFeedback }) {
+            // Helper to get category display name
+            const getCatDisplay = (catName) => {
+                if (!categories) return catName;
+                const found = categories.find(c => 
+                    (typeof c === 'object' ? c.name : c) === catName
+                );
+                return found ? (typeof found === 'object' ? found.displayName : found) : catName;
+            };
+
             if (loading) {
                 return (
                     <div className="loading">
                         <div className="spinner"></div>
-                        <p>Loading topics...</p>
+                        <p>載入主題中...</p>
                     </div>
                 );
             }
@@ -952,8 +975,8 @@
                 return (
                     <div className="empty-state">
                         <div className="empty-state-icon">📋</div>
-                        <h3>Select a category to view topics</h3>
-                        <p>Choose a category from the dropdown above</p>
+                        <h3>請選擇分類以查看主題</h3>
+                        <p>從上方下拉選單選擇一個分類</p>
                     </div>
                 );
             }
@@ -962,8 +985,8 @@
                 return (
                     <div className="empty-state">
                         <div className="empty-state-icon">📰</div>
-                        <h3>No topics found</h3>
-                        <p>Try fetching and processing news first</p>
+                        <h3>找不到主題</h3>
+                        <p>請先獲取並處理新聞</p>
                     </div>
                 );
             }
@@ -971,22 +994,31 @@
             return (
                 <div className="topics-section">
                     <div className="section-header">
-                        <h2 className="section-title">Topics: {selectedCategory}</h2>
-                        <span style={{ color: 'var(--text-light)' }}>{topics.length} topics</span>
+                        <h2 className="section-title">主題：{getCatDisplay(selectedCategory)}</h2>
+                        <span style={{ color: 'var(--text-light)' }}>{topics.length} 個主題</span>
                     </div>
                     <div className="topics-grid">
                         {topics.map(topic => (
-                            <TopicCard key={topic._id} topic={topic} onFeedback={onFeedback} />
+                            <TopicCard key={topic._id} topic={topic} categories={categories} onFeedback={onFeedback} />
                         ))}
                     </div>
                 </div>
             );
         }
 
-        function TopicCard({ topic, onFeedback }) {
+        function TopicCard({ topic, categories, onFeedback }) {
             const [expanded, setExpanded] = useState(false);
             const [newsItems, setNewsItems] = useState([]);
             const [loadingItems, setLoadingItems] = useState(false);
+
+            // Helper to get category display name
+            const getCatDisplay = (catName) => {
+                if (!categories) return catName;
+                const found = categories.find(c => 
+                    (typeof c === 'object' ? c.name : c) === catName
+                );
+                return found ? (typeof found === 'object' ? found.displayName : found) : catName;
+            };
 
             const loadNewsItems = async () => {
                 if (newsItems.length > 0) {
@@ -1019,7 +1051,7 @@
                 <div className="topic-card">
                     <div className="topic-header">
                         <div style={{ flex: 1 }}>
-                            <span className="topic-category">{topic.category}</span>
+                            <span className="topic-category">{getCatDisplay(topic.category)}</span>
                             <h3 className="topic-title">{topic.title}</h3>
                         </div>
                     </div>
@@ -1027,21 +1059,21 @@
                         <p className="topic-summary">{topic.summary}</p>
                     )}
                     <div className="topic-meta">
-                        <span>📊 Score: {topic.finalScore || topic.discussionScore || 0}</span>
-                        <span>📰 {topic.newsItems?.length || 0} items</span>
+                        <span>📊 分數: {topic.finalScore || topic.discussionScore || 0}</span>
+                        <span>📰 {topic.newsItems?.length || 0} 則新聞</span>
                     </div>
                     <div className="topic-actions">
                         <button
                             className="btn-icon"
                             onClick={() => onFeedback(topic._id, 'up')}
-                            title="Like"
+                            title="喜歡"
                         >
                             👍
                         </button>
                         <button
                             className="btn-icon"
                             onClick={() => onFeedback(topic._id, 'down')}
-                            title="Dislike"
+                            title="不喜歡"
                         >
                             👎
                         </button>
@@ -1051,13 +1083,13 @@
                             disabled={loadingItems}
                             style={{ marginLeft: 'auto' }}
                         >
-                            {expanded ? 'Hide' : 'Show'} News
+                            {expanded ? '隱藏' : '顯示'}新聞
                         </button>
                     </div>
                     {expanded && (
                         <div className="news-items">
                             {loadingItems ? (
-                                <div style={{ textAlign: 'center', padding: '1rem' }}>Loading...</div>
+                                <div style={{ textAlign: 'center', padding: '1rem' }}>載入中...</div>
                             ) : newsItems.length > 0 ? (
                                 newsItems.map(item => (
                                     <div key={item._id} className="news-item">
@@ -1068,11 +1100,11 @@
                                             </div>
                                         )}
                                         <div className="news-item-meta">
-                                            <span>{new Date(item.publishedAt).toLocaleDateString()}</span>
+                                            <span>{new Date(item.publishedAt).toLocaleDateString('zh-TW')}</span>
                                             <span>{item.source?.name || item.source?.type}</span>
                                             {item.url && (
                                                 <a href={item.url} target="_blank" rel="noopener noreferrer" className="news-item-link">
-                                                    Read more →
+                                                    閱讀更多 →
                                                 </a>
                                             )}
                                         </div>
@@ -1080,7 +1112,7 @@
                                 ))
                             ) : (
                                 <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-light)' }}>
-                                    No news items found
+                                    找不到新聞項目
                                 </div>
                             )}
                         </div>
@@ -1096,6 +1128,9 @@
             const [defaultTimeframe, setDefaultTimeframe] = useState(preferences.defaultTimeframe || '24h');
             const [newSource, setNewSource] = useState({ type: 'rss', url: '', name: '', priority: 5 });
             const isAdmin = userRole === 'ADMIN';
+
+            // Helper to get category display name
+            const getCatDisplay = (cat) => typeof cat === 'object' ? cat.displayName : cat;
 
             // Load available sources on mount
             useEffect(() => {
@@ -1164,47 +1199,47 @@
                 <div className="modal-overlay" onClick={onClose}>
                     <div className="modal" onClick={(e) => e.stopPropagation()}>
                         <div className="modal-header">
-                            <h2 className="modal-title">Preferences</h2>
+                            <h2 className="modal-title">偏好設定</h2>
                             <button className="close-btn" onClick={onClose}>×</button>
                         </div>
 
                         <div className="form-group">
-                            <label>Default Timeframe</label>
+                            <label>預設時間範圍</label>
                             <select
                                 className="form-control"
                                 value={defaultTimeframe}
                                 onChange={(e) => setDefaultTimeframe(e.target.value)}
                             >
-                                <option value="24h">Last 24 hours</option>
-                                <option value="7d">Last 7 days</option>
-                                <option value="30d">Last 30 days</option>
+                                <option value="24h">過去 24 小時</option>
+                                <option value="7d">過去 7 天</option>
+                                <option value="30d">過去 30 天</option>
                             </select>
                         </div>
 
                         <div className="form-group">
                             <label>
-                                Categories <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
-                                    {isAdmin ? '(Manage in Admin Panel)' : '(Read only)'}
+                                分類 <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
+                                    {isAdmin ? '(於管理面板管理)' : '(唯讀)'}
                                 </span>
                             </label>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                                {categories.map(cat => (
-                                    <span key={cat} style={{
+                                {categories.map((cat, idx) => (
+                                    <span key={idx} style={{
                                         padding: '0.25rem 0.75rem',
                                         background: 'var(--bg)',
                                         borderRadius: '20px',
                                         fontSize: '0.875rem'
                                     }}>
-                                        {cat}
+                                        {getCatDisplay(cat)}
                                     </span>
                                 ))}
                             </div>
                         </div>
 
                         <div className="form-group">
-                            <label>News Sources (Set Priority: 1-10)</label>
+                            <label>新聞來源（設定優先順序：1-10）</label>
                             <p style={{ fontSize: '0.8125rem', color: 'var(--text-light)', marginBottom: '0.5rem' }}>
-                                Adjust priority to affect ranking. Higher priority sources appear first.
+                                調整優先順序以影響排名。較高優先順序的來源會優先顯示。
                             </p>
                             {sources.map((source, index) => (
                                 <div key={index} style={{
@@ -1224,7 +1259,7 @@
                                         </div>
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                        <label style={{ fontSize: '0.8125rem' }}>Priority:</label>
+                                        <label style={{ fontSize: '0.8125rem' }}>優先順序:</label>
                                         <input
                                             type="number"
                                             className="form-control"
@@ -1243,14 +1278,14 @@
                             ))}
                             {sources.length === 0 && (
                                 <p style={{ color: 'var(--text-light)', fontSize: '0.875rem' }}>
-                                    No sources available. Admin needs to add sources first.
+                                    沒有可用的來源。管理員需要先新增來源。
                                 </p>
                             )}
                         </div>
 
                         <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
-                            <button className="btn btn-outline" onClick={onClose}>Cancel</button>
-                            <button className="btn btn-primary" onClick={handleSave}>Save</button>
+                            <button className="btn btn-outline" onClick={onClose}>取消</button>
+                            <button className="btn btn-primary" onClick={handleSave}>儲存</button>
                         </div>
                     </div>
                 </div>
@@ -1304,7 +1339,7 @@
                         setCategories(categoriesData.data || []);
                     }
                 } catch (error) {
-                    showMessage('Failed to load data: ' + error.message, 'error');
+                    showMessage('載入資料失敗: ' + error.message, 'error');
                 } finally {
                     setLoading(false);
                 }
@@ -1323,21 +1358,21 @@
                     });
 
                     if (res.ok) {
-                        showMessage('User created successfully', 'success');
+                        showMessage('使用者建立成功', 'success');
                         setShowUserForm(false);
                         setUserForm({ name: '', password: '', role: 'USER', email: '' });
                         loadData();
                     } else {
                         const data = await res.json();
-                        showMessage(data.message || 'Failed to create user', 'error');
+                        showMessage(data.message || '建立使用者失敗', 'error');
                     }
                 } catch (error) {
-                    showMessage('Error: ' + error.message, 'error');
+                    showMessage('錯誤: ' + error.message, 'error');
                 }
             };
 
             const handleDeleteUser = async (userId) => {
-                if (!confirm('Are you sure you want to delete this user?')) return;
+                if (!confirm('確定要刪除此使用者嗎？')) return;
                 
                 try {
                     const token = localStorage.getItem('jwt_token');
@@ -1347,14 +1382,14 @@
                     });
 
                     if (res.ok) {
-                        showMessage('User deleted successfully', 'success');
+                        showMessage('使用者刪除成功', 'success');
                         loadData();
                     } else {
                         const data = await res.json();
-                        showMessage(data.message || 'Failed to delete user', 'error');
+                        showMessage(data.message || '刪除使用者失敗', 'error');
                     }
                 } catch (error) {
-                    showMessage('Error: ' + error.message, 'error');
+                    showMessage('錯誤: ' + error.message, 'error');
                 }
             };
 
@@ -1371,20 +1406,20 @@
                     });
 
                     if (res.ok) {
-                        showMessage('Source created successfully', 'success');
+                        showMessage('來源建立成功', 'success');
                         setSourceForm({ name: '', type: 'rss', url: '', remark: '' });
                         loadData();
                     } else {
                         const data = await res.json();
-                        showMessage(data.message || 'Failed to create source', 'error');
+                        showMessage(data.message || '建立來源失敗', 'error');
                     }
                 } catch (error) {
-                    showMessage('Error: ' + error.message, 'error');
+                    showMessage('錯誤: ' + error.message, 'error');
                 }
             };
 
             const handleDeleteSource = async (sourceId) => {
-                if (!confirm('Are you sure you want to delete this source?')) return;
+                if (!confirm('確定要刪除此來源嗎？')) return;
                 
                 try {
                     const token = localStorage.getItem('jwt_token');
@@ -1394,14 +1429,14 @@
                     });
 
                     if (res.ok) {
-                        showMessage('Source deleted successfully', 'success');
+                        showMessage('來源刪除成功', 'success');
                         loadData();
                     } else {
                         const data = await res.json();
-                        showMessage(data.message || 'Failed to delete source', 'error');
+                        showMessage(data.message || '刪除來源失敗', 'error');
                     }
                 } catch (error) {
-                    showMessage('Error: ' + error.message, 'error');
+                    showMessage('錯誤: ' + error.message, 'error');
                 }
             };
 
@@ -1422,19 +1457,19 @@
                     });
 
                     if (res.ok) {
-                        showMessage('Category added successfully', 'success');
+                        showMessage('分類新增成功', 'success');
                         loadData();
                     } else {
                         const data = await res.json();
-                        showMessage(data.message || 'Failed to add category', 'error');
+                        showMessage(data.message || '新增分類失敗', 'error');
                     }
                 } catch (error) {
-                    showMessage('Error: ' + error.message, 'error');
+                    showMessage('錯誤: ' + error.message, 'error');
                 }
             };
 
             const handleDeleteCategory = async (categoryId) => {
-                if (!confirm('Are you sure you want to delete this category?')) return;
+                if (!confirm('確定要刪除此分類嗎？')) return;
                 try {
                     const token = localStorage.getItem('jwt_token');
                     const res = await fetch(`/api/admin/categories/${categoryId}`, {
@@ -1443,22 +1478,22 @@
                     });
 
                     if (res.ok) {
-                        showMessage('Category deleted successfully', 'success');
+                        showMessage('分類刪除成功', 'success');
                         loadData();
                     } else {
                         const data = await res.json();
-                        showMessage(data.message || 'Failed to delete category', 'error');
+                        showMessage(data.message || '刪除分類失敗', 'error');
                     }
                 } catch (error) {
-                    showMessage('Error: ' + error.message, 'error');
+                    showMessage('錯誤: ' + error.message, 'error');
                 }
             };
 
             return (
                 <div className="main-content">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                        <h1 style={{ fontSize: '2rem' }}>Admin Panel</h1>
-                        <button className="btn btn-outline" onClick={onBack}>← Back to Dashboard</button>
+                        <h1 style={{ fontSize: '2rem' }}>管理面板</h1>
+                        <button className="btn btn-outline" onClick={onBack}>← 返回儀表板</button>
                     </div>
 
                     <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', borderBottom: '2px solid var(--border)' }}>
@@ -1466,46 +1501,46 @@
                             className={`btn ${activeTab === 'users' ? 'btn-primary' : 'btn-outline'}`}
                             onClick={() => setActiveTab('users')}
                         >
-                            👥 Users
+                            👥 使用者
                         </button>
                         <button
                             className={`btn ${activeTab === 'sources' ? 'btn-primary' : 'btn-outline'}`}
                             onClick={() => setActiveTab('sources')}
                         >
-                            📰 Sources
+                            📰 來源
                         </button>
                         <button
                             className={`btn ${activeTab === 'categories' ? 'btn-primary' : 'btn-outline'}`}
                             onClick={() => setActiveTab('categories')}
                         >
-                            📂 Categories
+                            📂 分類
                         </button>
                     </div>
 
                     {activeTab === 'users' && (
                         <div className="container">
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                                <h2>User Management</h2>
+                                <h2>使用者管理</h2>
                                 <button className="btn btn-primary" onClick={() => setShowUserForm(true)}>
-                                    + Add User
+                                    + 新增使用者
                                 </button>
                             </div>
 
                             {showUserForm && (
                                 <div style={{ padding: '1rem', background: 'var(--bg)', borderRadius: '8px', marginBottom: '1rem' }}>
-                                    <h3>Create New User</h3>
+                                    <h3>建立新使用者</h3>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
                                         <input
                                             type="text"
                                             className="form-control"
-                                            placeholder="Username"
+                                            placeholder="使用者名稱"
                                             value={userForm.name}
                                             onChange={(e) => setUserForm({ ...userForm, name: e.target.value })}
                                         />
                                         <input
                                             type="password"
                                             className="form-control"
-                                            placeholder="Password"
+                                            placeholder="密碼"
                                             value={userForm.password}
                                             onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
                                         />
@@ -1514,23 +1549,23 @@
                                             value={userForm.role}
                                             onChange={(e) => setUserForm({ ...userForm, role: e.target.value })}
                                         >
-                                            <option value="USER">USER</option>
-                                            <option value="ADMIN">ADMIN</option>
+                                            <option value="USER">使用者</option>
+                                            <option value="ADMIN">管理員</option>
                                         </select>
                                         <input
                                             type="email"
                                             className="form-control"
-                                            placeholder="Email (optional)"
+                                            placeholder="電子郵件（選填）"
                                             value={userForm.email}
                                             onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
                                         />
                                     </div>
                                     <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
-                                        <button className="btn btn-primary" onClick={handleCreateUser}>Create</button>
+                                        <button className="btn btn-primary" onClick={handleCreateUser}>建立</button>
                                         <button className="btn btn-outline" onClick={() => {
                                             setShowUserForm(false);
                                             setUserForm({ name: '', password: '', role: 'USER', email: '' });
-                                        }}>Cancel</button>
+                                        }}>取消</button>
                                     </div>
                                 </div>
                             )}
@@ -1547,7 +1582,7 @@
                                         border: '1px solid var(--border)'
                                     }}>
                                         <div>
-                                            <strong>{user.name}</strong> ({user.role})
+                                            <strong>{user.name}</strong> ({user.role === 'ADMIN' ? '管理員' : '使用者'})
                                             {user.email && <div style={{ fontSize: '0.875rem', color: 'var(--text-light)' }}>{user.email}</div>}
                                         </div>
                                         {user.role !== 'ADMIN' && (
@@ -1555,7 +1590,7 @@
                                                 className="btn btn-danger btn-sm"
                                                 onClick={() => handleDeleteUser(user.name)}
                                             >
-                                                Delete
+                                                刪除
                                             </button>
                                         )}
                                     </div>
@@ -1566,14 +1601,14 @@
 
                     {activeTab === 'sources' && (
                         <div className="container">
-                            <h2>Source Management</h2>
+                            <h2>來源管理</h2>
                             <div style={{ padding: '1rem', background: 'var(--bg)', borderRadius: '8px', marginBottom: '1rem' }}>
-                                <h3>Add New Source</h3>
+                                <h3>新增來源</h3>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr 1fr', gap: '1rem', marginTop: '1rem' }}>
                                     <input
                                         type="text"
                                         className="form-control"
-                                        placeholder="Name"
+                                        placeholder="名稱"
                                         value={sourceForm.name}
                                         onChange={(e) => setSourceForm({ ...sourceForm, name: e.target.value })}
                                     />
@@ -1583,25 +1618,25 @@
                                         onChange={(e) => setSourceForm({ ...sourceForm, type: e.target.value })}
                                     >
                                         <option value="rss">RSS</option>
-                                        <option value="website">Website</option>
+                                        <option value="website">網站</option>
                                     </select>
                                     <input
                                         type="text"
                                         className="form-control"
-                                        placeholder="URL"
+                                        placeholder="網址"
                                         value={sourceForm.url}
                                         onChange={(e) => setSourceForm({ ...sourceForm, url: e.target.value })}
                                     />
                                     <input
                                         type="text"
                                         className="form-control"
-                                        placeholder="Remark"
+                                        placeholder="備註"
                                         value={sourceForm.remark}
                                         onChange={(e) => setSourceForm({ ...sourceForm, remark: e.target.value })}
                                     />
                                 </div>
                                 <button className="btn btn-primary" style={{ marginTop: '1rem' }} onClick={handleCreateSource}>
-                                    Add Source
+                                    新增來源
                                 </button>
                             </div>
 
@@ -1626,7 +1661,7 @@
                                             className="btn btn-danger btn-sm"
                                             onClick={() => handleDeleteSource(source._id)}
                                         >
-                                            Delete
+                                            刪除
                                         </button>
                                     </div>
                                 ))}
@@ -1636,9 +1671,9 @@
 
                     {activeTab === 'categories' && (
                         <div className="container">
-                            <h2>Category Management</h2>
+                            <h2>分類管理</h2>
                             <p style={{ color: 'var(--text-light)', marginBottom: '1rem' }}>
-                                Manage global categories available to all users
+                                管理所有使用者可用的全域分類
                             </p>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
                                 {categories.map((cat) => (
@@ -1671,7 +1706,7 @@
                                     type="text"
                                     id="newCategoryInput"
                                     className="form-control"
-                                    placeholder="Add category"
+                                    placeholder="新增分類"
                                     onKeyPress={(e) => {
                                         if (e.key === 'Enter' && e.target.value) {
                                             handleAddCategory(e.target.value);
@@ -1687,7 +1722,7 @@
                                         input.value = '';
                                     }
                                 }}>
-                                    Add Category
+                                    新增分類
                                 </button>
                             </div>
                         </div>

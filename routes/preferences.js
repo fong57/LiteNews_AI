@@ -20,13 +20,17 @@ router.get('/', async (req, res) => {
     
     // Fetch categories from Category model (global, admin-managed)
     const categoryDocs = await Category.find({ isActive: true }).sort({ sortOrder: 1 });
-    const categories = categoryDocs.map(c => c.displayName || c.name);
+    // Return category objects with both name (for API queries) and displayName (for UI display)
+    const categories = categoryDocs.map(c => ({
+      name: c.name,
+      displayName: c.displayName || c.name
+    }));
     
     res.json({
       status: 'success',
       data: {
         sources: user.preferences?.sources || [],
-        categories: categories, // Now from Category model
+        categories: categories, // Now from Category model with name and displayName
         defaultTimeframe: user.preferences?.defaultTimeframe || '24h'
       }
     });

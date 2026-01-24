@@ -12,12 +12,14 @@
     "generate-admin-json": "node scripts/generate-admin-json.js",
     "test-perplexity": "node scripts/test-perplexity.js",
     "init-feedsources": "node scripts/init-feedsources.js",
-    "setup": "node scripts/reset-db.js --force --with-admin"
+    "setup": "node scripts/reset-db.js --force --with-admin",
+    "setup-vector-index": "node scripts/setup-vector-index.js"
   },
   "keywords": ["news", "ai", "rss", "recommendation"],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@xenova/transformers": "^2.17.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",

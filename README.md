@@ -1,13 +1,14 @@
 # LiteNews AI
 
-An AI-powered news aggregation and recommendation system that fetches news from multiple sources (RSS, websites), categorizes them using AI, groups related articles into topics, and provides personalized recommendations based on user preferences.
+An AI-powered news aggregation and recommendation system that fetches news from multiple sources (RSS, websites), uses **semantic embeddings** for intelligent clustering, categorizes topics using AI, and provides personalized recommendations based on user preferences.
 
 ## 🎯 Project Overview
 
 LiteNews AI is a full-stack application that:
 - **Aggregates** news from RSS feeds and websites
-- **Categorizes** articles using AI/LLM (Ollama or mock mode)
-- **Groups** related articles into intelligent topics
+- **Embeds** articles using Sentence-BERT for semantic understanding
+- **Clusters** related articles using vector similarity (MongoDB Atlas Vector Search)
+- **Categorizes** topics (not individual items) using AI/LLM
 - **Ranks** topics by relevance and user preferences
 - **Personalizes** content based on user feedback and preferences
 
@@ -15,8 +16,9 @@ LiteNews AI is a full-stack application that:
 
 ### Core Functionality
 - **Multi-source News Fetching**: Fetch from RSS feeds and websites
-- **AI-powered Categorization**: Automatically categorize news articles using LLM
-- **Topic Grouping**: Group related articles into coherent topics with AI-generated summaries
+- **Semantic Embeddings**: Generate 384-dimensional embeddings using Sentence-BERT
+- **Vector-based Clustering**: Group related articles using cosine similarity
+- **AI-powered Topic Categorization**: Categorize topics using LLM (Perplexity or mock mode)
 - **Smart Ranking**: Rank topics by discussion score, recency, and user preferences
 - **User Preferences**: Customize news sources, categories, and timeframes
 - **Feedback System**: Like/dislike topics to improve recommendations
@@ -25,22 +27,23 @@ LiteNews AI is a full-stack application that:
 ### Technical Features
 - JWT-based authentication
 - RESTful API with rate limiting
-- MongoDB Atlas integration
+- MongoDB Atlas integration with Vector Search
+- Sentence-BERT embeddings via @xenova/transformers
 - Responsive React frontend (CDN-based, no build step)
-- Mock LLM mode for testing without Ollama
+- Mock LLM mode for testing without external APIs
 - Real-time news processing
 
 ## 🛠️ Tech Stack
 
 ### Backend
 - **Node.js** + **Express** - REST API server
-- **MongoDB Atlas** - Cloud database
+- **MongoDB Atlas** - Cloud database with Vector Search (M10+)
 - **Mongoose** - ODM for MongoDB
+- **@xenova/transformers** - Sentence-BERT embeddings (all-MiniLM-L6-v2)
 - **JWT** - Authentication
 - **RSS Parser** - RSS feed parsing
 - **Cheerio** - Web scraping
 - **Axios** - HTTP client
-- **Ollama** (optional) - Local LLM for AI features
 
 ### Frontend
 - **React 18** (via CDN) - UI framework
@@ -49,9 +52,9 @@ LiteNews AI is a full-stack application that:
 
 ## 📋 Prerequisites
 
-- Node.js (v14 or higher)
-- MongoDB Atlas account (or local MongoDB)
-- (Optional) Ollama installed and running for AI features
+- Node.js (v18 or higher recommended)
+- MongoDB Atlas M10+ cluster (for Vector Search support)
+- (Optional) Perplexity API key for AI features
 
 ## 🚀 Installation
 
@@ -65,6 +68,7 @@ LiteNews AI is a full-stack application that:
    ```bash
    npm install
    ```
+   > Note: First run will download the Sentence-BERT model (~90MB) to `.cache/transformers/`
 
 3. **Configure environment variables**
    ```bash
@@ -72,11 +76,11 @@ LiteNews AI is a full-stack application that:
    ```
    
    Edit `.env` and set:
-   - `MONGODB_URI` - Your MongoDB connection string
+   - `MONGODB_URI` - Your MongoDB Atlas connection string
    - `JWT_SECRET` - Secret key for JWT tokens
    - `PORT` - Server port (default: 4250)
-   - `OLLAMA_BASE_URL` - Ollama server URL (if using)
-   - `USE_MOCK_LLM` - Set to `true` to use mock mode
+   - `LLM_MODE` - AI provider: `perplexity` or `mock`
+   - `PERPLEXITY_API_KEY` - Perplexity API key (if using)
 
 4. **Initialize the database**
    
@@ -93,26 +97,23 @@ LiteNews AI is a full-stack application that:
    ```bash
    npm run create-admin
    ```
-   This connects to MongoDB and creates the admin user directly.
-   
-   **Option C: Generate JSON and import via MongoDB Compass**
-   ```bash
-   npm run generate-admin-json
-   ```
-   This creates `admin-user.json` in the project root. Then import it manually via MongoDB Compass.
-   
-   **Default admin credentials:**
-   - Username: `admin`
-   - Password: `admin123`
 
-5. **Start the server**
+5. **Setup MongoDB Atlas Vector Search Index**
+   ```bash
+   npm run setup-vector-index
+   ```
+   This creates the required vector search index for semantic clustering.
+   
+   > If automatic setup fails, see [Manual Vector Index Setup](#manual-vector-index-setup) below.
+
+6. **Start the server**
    ```bash
    npm start
    # or for development with auto-reload
    npm run dev_start
    ```
 
-6. **Access the frontend**
+7. **Access the frontend**
    Open your browser to `http://localhost:4250`
 
 ## 🔧 Configuration
@@ -121,13 +122,17 @@ LiteNews AI is a full-stack application that:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `MONGODB_URI` | MongoDB connection string | `mongodb://localhost:27017/litenews` |
+| `MONGODB_URI` | MongoDB Atlas connection string | Required |
 | `JWT_SECRET` | Secret key for JWT tokens | Required |
 | `PORT` | Server port | `4250` |
 | `FRONTEND_URL` | Frontend URL for CORS | `http://localhost:3000` |
-| `OLLAMA_BASE_URL` | Ollama server URL | `http://localhost:11434` |
-| `OLLAMA_MODEL` | Ollama model name | `llama3.2` |
-| `USE_MOCK_LLM` | Force mock LLM mode | `false` |
+| `LLM_MODE` | LLM provider: `perplexity` or `mock` | `mock` |
+| `PERPLEXITY_API_KEY` | Perplexity AI API key | Required if `LLM_MODE=perplexity` |
+| `PERPLEXITY_MODEL` | Perplexity model name | `llama-3.1-sonar-small-128k-online` |
+| `EMBEDDING_MODEL` | Sentence-BERT model | `Xenova/all-MiniLM-L6-v2` |
+| `CLUSTERING_THRESHOLD` | Similarity threshold (0.0-1.0) | `0.65` |
+| `MIN_CLUSTER_SIZE` | Minimum items per cluster | `1` |
+| `MAX_CLUSTER_SIZE` | Maximum items per cluster | `20` |
 
 ### Setting Up News Sources
 
@@ -164,8 +169,8 @@ LiteNews AI is a full-stack application that:
 
 ### News
 - `POST /api/news/fetch` - Fetch news from configured sources (protected)
-- `GET /api/news/items` - Get news items (protected)
-- `POST /api/news/process` - Process news into topics (protected)
+- `GET /api/news/items` - Get news items, filter by `category` or `topicId` (protected)
+- `POST /api/news/process` - Process news into topics via clustering (protected)
 
 ### Topics
 - `GET /api/topics?category=<category>&limit=<limit>` - Get topics by category (protected)
@@ -185,8 +190,8 @@ LiteNews_AI/
 │
 ├── models/                   # Mongoose models
 │   ├── User.js              # User model with preferences
-│   ├── NewsItem.js          # News article model
-│   ├── Topic.js             # Topic model
+│   ├── NewsItem.js          # News article model (with embeddings)
+│   ├── Topic.js             # Topic model (with category)
 │   ├── FeedSource.js        # Feed source model
 │   └── Category.js          # Category model
 │
@@ -195,17 +200,19 @@ LiteNews_AI/
 │   ├── user.js              # User management routes
 │   ├── preferences.js       # User preferences routes
 │   ├── news.js              # News fetching/processing routes
-│   └── topics.js            # Topic routes
+│   ├── topics.js            # Topic routes
+│   └── admin.js             # Admin routes (categories, sources)
 │
 ├── services/                 # Business logic
+│   ├── embedding/           # Semantic embedding service
+│   │   └── index.js         # Sentence-BERT embeddings (@xenova/transformers)
 │   ├── llm/                 # LLM provider system
 │   │   ├── index.js         # Provider switch/router
 │   │   └── providers/       # Individual LLM providers
 │   │       ├── mock.js      # Keyword-based (no API needed)
-│   │       ├── ollama.js    # Local Ollama LLM
 │   │       └── perplexity.js # Perplexity AI API
-│   ├── newsFetcher.js       # RSS/web scraping service
-│   ├── topicGrouper.js      # Topic grouping service
+│   ├── newsFetcher.js       # RSS/web scraping + embedding generation
+│   ├── topicGrouper.js      # Vector clustering + topic categorization
 │   └── rankingService.js    # Topic ranking service
 │
 ├── middleware/               # Express middleware
@@ -215,18 +222,18 @@ LiteNews_AI/
 │   └── userHelper.js        # User lookup helper
 │
 ├── public/                   # Static files
-│   ├── index.html           # React frontend (single-page app)
-│   └── style.css            # Legacy styles (not used)
+│   └── index.html           # React frontend (single-page app)
 │
 ├── scripts/                  # Utility scripts
 │   ├── reset-db.js          # Database reset + seeding script
 │   ├── create-admin.js      # Create admin user directly in database
 │   ├── generate-admin-json.js # Generate admin user JSON for import
 │   ├── init-feedsources.js  # Seed default feed sources
+│   ├── setup-vector-index.js # Create MongoDB Atlas vector search index
 │   └── test-perplexity.js   # Test Perplexity API connection
 │
-├── admin-user.json          # Admin user JSON (generated, for MongoDB Compass import)
-└── admin-user-single.json   # Alternative single-document format
+└── .cache/                   # Cache directory (auto-created)
+    └── transformers/        # Downloaded Sentence-BERT model files
 ```
 
 ## 🎨 Frontend
@@ -245,11 +252,12 @@ No build step required - React and Babel are loaded via CDN.
 ## 🔄 Workflow
 
 1. **Setup**: Run `npm run setup` to initialize database with admin user and default data
-2. **Configure**: Login and customize preferences (sources, categories, timeframe)
-3. **Fetch**: Click "Fetch News" to retrieve articles from sources
-4. **Process**: Click "Process Topics" to categorize and group articles
-5. **Browse**: View topics by category, read articles, provide feedback
-6. **Personalize**: System learns from your feedback to improve rankings
+2. **Vector Index**: Run `npm run setup-vector-index` to create the vector search index
+3. **Configure**: Login and customize preferences (sources, categories, timeframe)
+4. **Fetch**: Click "Fetch News" to retrieve articles and generate embeddings
+5. **Process**: Click "Process Topics" to cluster articles and categorize topics
+6. **Browse**: View topics by category, read articles, provide feedback
+7. **Personalize**: System learns from your feedback to improve rankings
 
 ## 🧪 Development
 
@@ -267,7 +275,6 @@ Set `LLM_MODE` in `.env` to choose your AI backend:
 |------|-------------|--------------|
 | `mock` | Keyword-based categorization (default) | None |
 | `perplexity` | Perplexity AI API | `PERPLEXITY_API_KEY` |
-| `ollama` | Local Ollama LLM | Ollama running locally |
 
 **Example `.env` configuration:**
 ```bash
@@ -276,13 +283,12 @@ LLM_MODE=perplexity
 PERPLEXITY_API_KEY=pplx-xxxxxxxxxxxxxxxxxxxx
 PERPLEXITY_MODEL=llama-3.1-sonar-small-128k-online
 
-# Or use local Ollama
-LLM_MODE=ollama
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=llama3.2
-
 # Or use mock mode (no AI, keyword-based)
 LLM_MODE=mock
+
+# Embedding configuration (optional)
+EMBEDDING_MODEL=Xenova/all-MiniLM-L6-v2
+CLUSTERING_THRESHOLD=0.65
 ```
 
 **Perplexity Models:**
@@ -292,11 +298,14 @@ LLM_MODE=mock
 
 The system automatically falls back to mock mode if the configured provider is unavailable.
 
-### Database Scripts
+### NPM Scripts
 
 | Script | Description |
 |--------|-------------|
-| `npm run setup` | **One-step full setup**: reset DB + admin + categories + feed sources |
+| `npm start` | Start production server |
+| `npm run dev_start` | Start development server with auto-reload |
+| `npm run setup` | **One-step full setup**: reset DB + admin + categories + feeds |
+| `npm run setup-vector-index` | **Create MongoDB Atlas vector search index** |
 | `npm run reset-db` | Reset database only (with confirmation prompt) |
 | `npm run reset-db -- --force` | Reset database without confirmation |
 | `npm run reset-db -- --with-admin` | Reset + create admin + seed categories + seed feeds |
@@ -308,14 +317,48 @@ The system automatically falls back to mock mode if the configured provider is u
 
 **Quick Start:**
 ```bash
-# Fresh installation - one command does it all
+# Fresh installation - full setup
 npm run setup
+npm run setup-vector-index
 
-# Or step by step:
-npm run reset-db -- --force    # Clear database
-npm run create-admin           # Create admin user
-npm run init-feedsources       # Seed feed sources
+# Start the server
+npm run dev_start
 ```
+
+## 🔍 Manual Vector Index Setup
+
+If `npm run setup-vector-index` fails, create the index manually in MongoDB Atlas:
+
+1. Go to [MongoDB Atlas](https://cloud.mongodb.com)
+2. Select your cluster → **Search** → **Create Search Index**
+3. Choose **JSON Editor**
+4. Select your database and the `newsitems` collection
+5. Set index name to: `news_embedding_index`
+6. Paste this definition:
+
+```json
+{
+  "mappings": {
+    "dynamic": false,
+    "fields": {
+      "embedding": {
+        "type": "knnVector",
+        "dimensions": 384,
+        "similarity": "cosine"
+      },
+      "topicId": {
+        "type": "objectId"
+      },
+      "publishedAt": {
+        "type": "date"
+      }
+    }
+  }
+}
+```
+
+7. Click **Create Search Index**
+8. Wait for status to become **Active**
 
 ## 🔒 Security
 
@@ -325,13 +368,34 @@ npm run init-feedsources       # Seed feed sources
 - Input validation
 - Protected routes with middleware
 
-## 📝 Notes
+## 📝 Architecture Notes
 
-- The system uses a single "admin" user identified by name (not ObjectId)
-- News items are deduplicated by URL
-- Topics are ranked by discussion score, recency, and user preferences
-- Feedback (likes/dislikes) affects future topic rankings
-- Mock LLM mode provides basic keyword-based categorization
+### News Processing Pipeline
+
+```
+1. Fetch News (newsFetcher.js)
+   └── Parse RSS/scrape websites
+   └── Generate Sentence-BERT embeddings (384 dimensions)
+   └── Save to NewsItem collection
+
+2. Cluster & Categorize (topicGrouper.js)
+   └── Vector similarity clustering (MongoDB Atlas $vectorSearch)
+   └── Fallback: Manual cosine similarity if Atlas unavailable
+   └── Generate topic metadata (title, summary, tags) via LLM
+   └── Categorize each topic (not individual items) via LLM
+   └── Create Topic documents
+
+3. Rank & Display (rankingService.js)
+   └── Calculate discussion scores
+   └── Apply user preference multipliers
+   └── Return ranked topics by category
+```
+
+### Key Design Decisions
+
+- **Topic-level categorization**: Categories are assigned to topics, not individual news items
+- **Semantic clustering**: Uses vector embeddings instead of keyword matching for better grouping
+- **Graceful fallbacks**: Manual clustering if Atlas Vector Search unavailable; mock LLM if API unavailable
 
 ## 🐛 Troubleshooting
 
@@ -340,14 +404,24 @@ npm run init-feedsources       # Seed feed sources
 - Ensure IP is whitelisted in MongoDB Atlas
 - Verify SSL/TLS settings
 
+### Vector Search Not Working
+- Ensure you're using MongoDB Atlas M10+ tier (Vector Search requires M10+)
+- Run `npm run setup-vector-index` to create the index
+- Check index status in Atlas UI (must be "Active")
+- System will fallback to manual cosine similarity if unavailable
+
+### Embedding Model Issues
+- First run downloads ~90MB model to `.cache/transformers/`
+- Ensure sufficient disk space
+- Check Node.js version (v18+ recommended)
+
 ### "User not found" Errors
 - Make sure admin user exists: Run `npm run setup` or `npm run create-admin`
-- Alternatively, run `npm run generate-admin-json` to create JSON for MongoDB Compass import
 - Check JWT token is valid and not expired
 
 ### LLM Errors
-- If using Ollama, ensure it's running: `ollama serve`
-- Use mock mode for testing: `USE_MOCK_LLM=true`
+- If using Perplexity, verify API key is valid
+- Use mock mode for testing: `LLM_MODE=mock`
 
 ### Frontend Not Loading
 - Check server is running on correct port
