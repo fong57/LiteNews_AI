@@ -80,26 +80,23 @@ LiteNews AI is a full-stack application that:
 
 4. **Create admin user**
    
-   **Option A: Generate JSON and import via MongoDB Compass (Recommended)**
+   **Option A: Direct database creation (Recommended)**
+   ```bash
+   npm run create-admin
+   ```
+   This connects to MongoDB and creates the admin user directly.
+   
+   **Option B: Generate JSON and import via MongoDB Compass**
    ```bash
    npm run generate-admin-json
    ```
+   This creates `admin-user.json` in the project root. Then import it manually via MongoDB Compass.
    
-   This creates `admin-user.json` in the project root. Then:
-   1. Open MongoDB Compass
-   2. Connect to your MongoDB Atlas cluster
-   3. Select your database (or create `litenews` if needed)
-   4. Select or create the `users` collection
-   5. Click "Add Data" → "Import File"
-   6. Select `admin-user.json`
-   7. Choose format: JSON
-   8. Click "Import"
-   
-   **Option B: Create via API (after server is running)**
+   **Option C: Reset database with admin user**
    ```bash
-   # First, you'll need to create a user through MongoDB Compass or directly
-   # Then login and use the admin panel to create more users
+   npm run reset-db -- --with-admin
    ```
+   This clears all data and creates the admin user in one step.
    
    **Default admin credentials:**
    - Username: `admin`
@@ -210,6 +207,7 @@ LiteNews_AI/
 │   ├── add-user.js          # User creation script
 │   ├── test-db.js           # Database test script
 │   ├── reset-db.js          # Database reset script
+│   ├── create-admin.js      # Create admin user directly in database
 │   └── generate-admin-json.js # Generate admin user JSON for import
 │
 ├── admin-user.json          # Admin user JSON (generated, for MongoDB Compass import)
@@ -256,14 +254,19 @@ Set `USE_MOCK_LLM=true` in `.env` to use mock AI responses without Ollama. Usefu
 # Test database connection
 node scripts/test-db.js
 
-# Add a test user
-node scripts/add-user.js
+# Create admin user directly in database
+npm run create-admin
 
 # Generate admin user JSON for MongoDB Compass import
 npm run generate-admin-json
 
 # Reset database (clears all data and recreates indexes)
 npm run reset-db
+
+# Reset database AND create admin user in one step
+npm run reset-db -- --with-admin
+# or with force flag (no confirmation prompt)
+npm run reset-db -- --force --with-admin
 ```
 
 ## 🔒 Security

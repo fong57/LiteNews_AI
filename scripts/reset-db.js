@@ -103,14 +103,44 @@ async function resetDatabase() {
       console.log(`   ℹ️  ${remainingCollections.length} collection(s) remain (may be system collections)\n`);
     }
 
+    // Check for --with-admin flag
+    const withAdminFlag = process.argv.includes('--with-admin') || process.argv.includes('-a');
+    
+    if (withAdminFlag) {
+      console.log('👤 Creating admin user (--with-admin flag detected)...\n');
+      const bcrypt = require('bcryptjs');
+      const hashedPassword = await bcrypt.hash('admin123', 10);
+      
+      await User.create({
+        name: 'admin',
+        password: hashedPassword,
+        role: 'ADMIN',
+        preferences: {
+          sources: [],
+          categories: ['general', 'technology', 'politics', 'business', 'sports'],
+          defaultTimeframe: '24h'
+        },
+        topicPreferences: {
+          likedTopics: [],
+          dislikedTopics: [],
+          topicScores: {}
+        }
+      });
+      console.log('✅ Admin user created!');
+      console.log('   Username: admin');
+      console.log('   Password: admin123\n');
+    }
+
     // Success message
     console.log('═══════════════════════════════════════');
     console.log('✅ Database reset completed successfully!');
     console.log('═══════════════════════════════════════');
     console.log('\n📝 Next steps:');
-    console.log('   1. Run ./create-admin-user.sh to create admin user');
-    console.log('   2. Start the server: npm start');
-    console.log('   3. Login and configure preferences\n');
+    if (!withAdminFlag) {
+      console.log('   1. Run: npm run create-admin');
+    }
+    console.log(`   ${withAdminFlag ? '1' : '2'}. Start the server: npm start`);
+    console.log(`   ${withAdminFlag ? '2' : '3'}. Login and configure preferences\n`);
 
     process.exit(0);
   } catch (error) {
