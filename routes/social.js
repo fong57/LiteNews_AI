@@ -117,10 +117,10 @@ router.post('/admin/handles', adminOnly, async (req, res) => {
       });
     }
     
-    if (!['mastodon', 'youtube', 'x', 'instagram'].includes(platform)) {
+    if (!['youtube', 'x', 'instagram'].includes(platform)) {
       return res.status(400).json({
         status: 'error',
-        message: 'Platform must be "mastodon", "youtube", "x", or "instagram"'
+        message: 'Platform must be "youtube", "x", or "instagram"'
       });
     }
     

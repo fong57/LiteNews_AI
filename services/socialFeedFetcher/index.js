@@ -1,7 +1,6 @@
 // services/socialFeedFetcher/index.js
 const SocialHandle = require('../../models/SocialHandle');
 const SocialPost = require('../../models/SocialPost');
-const { fetchMastodonFeed } = require('./mastodon');
 const { fetchYouTubeFeed } = require('./youtube');
 const { fetchXFeed } = require('./x');
 const { fetchInstagramFeed } = require('./instagram');
@@ -23,9 +22,7 @@ async function fetchFeedsForAllHandles() {
     try {
       let feedData;
       
-      if (handle.platform === 'mastodon') {
-        feedData = await fetchMastodonFeed(handle.handle, handle.instanceBaseUrl, 20);
-      } else if (handle.platform === 'youtube') {
+      if (handle.platform === 'youtube') {
         feedData = await fetchYouTubeFeed(handle.handle, 20);
       } else if (handle.platform === 'x') {
         feedData = await fetchXFeed(handle.handle, 20);
@@ -117,9 +114,7 @@ async function fetchFeedForHandle(handleId) {
   
   let feedData;
   
-  if (handle.platform === 'mastodon') {
-    feedData = await fetchMastodonFeed(handle.handle, handle.instanceBaseUrl, 20);
-  } else if (handle.platform === 'youtube') {
+  if (handle.platform === 'youtube') {
     feedData = await fetchYouTubeFeed(handle.handle, 20);
   } else if (handle.platform === 'x') {
     feedData = await fetchXFeed(handle.handle, 20);

@@ -11,13 +11,13 @@ LiteNews AI is a full-stack application that:
 - **Categorizes** topics (not individual items) using AI/LLM
 - **Ranks** topics by relevance and user preferences
 - **Personalizes** content based on user feedback and preferences
-- **Fetches** social media feeds from Mastodon, YouTube, X (Twitter), and Instagram
+- **Fetches** social media feeds from YouTube, X (Twitter), and Instagram
 
 ## ✨ Features
 
 ### Core Functionality
 - **Multi-source News Fetching**: Fetch from RSS feeds, websites, and social media platforms
-- **Social Media Integration**: Fetch feeds from Mastodon, YouTube, X (Twitter), and Instagram
+- **Social Media Integration**: Fetch feeds from YouTube, X (Twitter), and Instagram
 - **Semantic Embeddings**: Generate 384-dimensional embeddings using FastEmbed
 - **Vector-based Clustering**: Group related articles using cosine similarity
 - **AI-powered Topic Categorization**: Categorize topics using LLM (Perplexity or mock mode)
@@ -32,7 +32,7 @@ LiteNews AI is a full-stack application that:
 - MongoDB Atlas integration with Vector Search
 - FastEmbed embeddings (no Sharp dependency, robust and stable)
 - Enhanced embedding diagnostics with error handling and recovery
-- Social media API integrations (SociaVault for X/Instagram, YouTube Data API)
+- Social media API integrations (SociaVault for YouTube, X, and Instagram)
 - Responsive React frontend (CDN-based, no build step)
 - Mock LLM mode for testing without external APIs
 - Real-time news processing
@@ -60,7 +60,7 @@ LiteNews AI is a full-stack application that:
 - MongoDB Atlas M10+ cluster (for Vector Search support)
 - (Optional) Perplexity API key for AI features
 - (Optional) SociaVault API key for X (Twitter) and Instagram feeds
-- (Optional) YouTube Data API key for YouTube channel feeds
+- (Optional) SociaVault API key for YouTube, X, and Instagram feeds
 
 ## 🚀 Installation
 
@@ -87,8 +87,7 @@ LiteNews AI is a full-stack application that:
    - `PORT` - Server port (default: 4250)
    - `LLM_MODE` - AI provider: `perplexity` or `mock`
    - `PERPLEXITY_API_KEY` - Perplexity API key (if using)
-   - `SOCIAVAULT_API_KEY` - SociaVault API key for X/Instagram (optional)
-   - `YOUTUBE_API_KEY` - YouTube Data API key for YouTube feeds (optional)
+   - `SOCIAVAULT_API_KEY` - SociaVault API key for YouTube, X, and Instagram (optional)
 
 4. **Initialize the database**
    
@@ -141,9 +140,7 @@ LiteNews AI is a full-stack application that:
 | `CLUSTERING_THRESHOLD` | Similarity threshold (0.0-1.0) | `0.65` |
 | `MIN_CLUSTER_SIZE` | Minimum items per cluster | `1` |
 | `MAX_CLUSTER_SIZE` | Maximum items per cluster | `20` |
-| `SOCIAVAULT_API_KEY` | SociaVault API key for X/Instagram | Required for X/Instagram feeds |
-| `YOUTUBE_API_KEY` | YouTube Data API v3 key | Required for YouTube feeds |
-| `MASTODON_INSTANCE_BASE_URL` | Default Mastodon instance URL | Optional (for Mastodon feeds) |
+| `SOCIAVAULT_API_KEY` | SociaVault API key | Required for YouTube, X, and Instagram feeds |
 
 ### Setting Up News Sources
 
@@ -156,16 +153,14 @@ LiteNews AI is a full-stack application that:
 ### Setting Up Social Media Feeds
 
 **Prerequisites:**
-- For **X (Twitter)** and **Instagram**: Get a SociaVault API key from https://sociavault.com/dashboard
-- For **YouTube**: Get a YouTube Data API v3 key from Google Cloud Console
-- For **Mastodon**: No API key required (public feeds)
+- For **YouTube, X (Twitter), and Instagram**: Get a SociaVault API key from https://sociavault.com/dashboard
+  - 50 free credits to start, then pay-per-request (1 credit per successful request)
+  - All three platforms use the same SociaVault API key
 
 **Steps:**
-1. Add API keys to your `.env` file:
+1. Add API key to your `.env` file:
    ```bash
    SOCIAVAULT_API_KEY=sk_live_xxxxxxxxxxxxx
-   YOUTUBE_API_KEY=your-youtube-api-key-here
-   MASTODON_INSTANCE_BASE_URL=https://mastodon.social  # Optional
    ```
 
 2. Use the admin API endpoints to create social handles:
@@ -203,10 +198,9 @@ LiteNews AI is a full-stack application that:
    ```
 
 **Supported Platforms:**
-- **Mastodon**: Public feeds, no API key required
-- **YouTube**: Requires YouTube Data API v3 key
-- **X (Twitter)**: Requires SociaVault API key
-- **Instagram**: Requires SociaVault API key
+- **YouTube**: Uses SociaVault API (same key as X/Instagram)
+- **X (Twitter)**: Uses SociaVault API
+- **Instagram**: Uses SociaVault API
 
 ## 📡 API Endpoints
 
@@ -295,7 +289,6 @@ LiteNews_AI/
 │   ├── rankingService.js    # Topic ranking service
 │   └── socialFeedFetcher/   # Social media feed fetchers
 │       ├── index.js         # Main fetcher orchestrator
-│       ├── mastodon.js      # Mastodon feed fetcher
 │       ├── youtube.js        # YouTube feed fetcher
 │       ├── x.js             # X (Twitter) feed fetcher
 │       └── instagram.js     # Instagram feed fetcher
@@ -519,15 +512,13 @@ If `npm run setup-vector-index` fails, create the index manually in MongoDB Atla
 - Verify static files are being served from `public/` directory
 
 ### Social Media Feed Issues
-- **X (Twitter) / Instagram**: Requires valid `SOCIAVAULT_API_KEY` in `.env`
+- **YouTube, X (Twitter), and Instagram**: Requires valid `SOCIAVAULT_API_KEY` in `.env`
   - Get API key at: https://sociavault.com/dashboard
-  - 50 free credits to start, then pay-per-request
-- **YouTube**: Requires valid `YOUTUBE_API_KEY` in `.env`
-  - Get API key at: https://console.cloud.google.com/apis/credentials
-  - Enable YouTube Data API v3 in your Google Cloud project
-- **Mastodon**: No API key required for public feeds
-  - Optionally set `MASTODON_INSTANCE_BASE_URL` for default instance
-- Verify handle format: Use `@username` for X/Instagram, channel ID or username for YouTube
+  - 50 free credits to start, then pay-per-request (1 credit per successful request)
+  - All three platforms use the same SociaVault API key
+- Verify handle format: 
+  - Use `@username` for X/Instagram
+  - Use channel ID (UC...), username (@username), or custom URL for YouTube
 - Check API rate limits and account credits
 
 ## 📄 License

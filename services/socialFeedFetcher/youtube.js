@@ -1,15 +1,15 @@
 // services/socialFeedFetcher/youtube.js
 const axios = require('axios');
 
-const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
+const SOCIAVAULT_API_BASE = 'https://api.sociavault.com/v1/scrape';
 
 /**
- * Get YouTube API key from environment
+ * Get SociaVault API key from environment
  */
 function getApiKey() {
-  const apiKey = process.env.YOUTUBE_API_KEY;
+  const apiKey = process.env.SOCIAVAULT_API_KEY;
   if (!apiKey) {
-    throw new Error('YOUTUBE_API_KEY environment variable is required');
+    throw new Error('SOCIAVAULT_API_KEY environment variable is required');
   }
   return apiKey;
 }
@@ -20,79 +20,161 @@ function getApiKey() {
  * - Channel ID (UC...)
  * - Username (@username)
  * - Custom URL (@customname)
+ * - Full URL (https://youtube.com/@username)
  */
 async function resolveChannel(handle) {
   try {
+    console.log(`[YouTube] Resolving channel for handle: ${handle}`);
     const apiKey = getApiKey();
     const cleanHandle = handle.replace('@', '').trim();
+    console.log(`[YouTube] Clean handle: ${cleanHandle}`);
     
     // If it looks like a channel ID (starts with UC), use it directly
     if (cleanHandle.startsWith('UC') && cleanHandle.length === 24) {
+      console.log(`[YouTube] Using channel ID directly: ${cleanHandle}`);
       return {
         channelId: cleanHandle,
         handle: handle
       };
     }
     
-    // Try to resolve by username/custom URL
-    // First, try channels.list with forUsername
-    try {
-      const response = await axios.get(`${YOUTUBE_API_BASE}/channels`, {
-        params: {
-          part: 'id,snippet',
-          forUsername: cleanHandle,
-          key: apiKey
-        },
-        timeout: 10000,
-        headers: {
-          'User-Agent': 'LiteNews_AI/1.0'
+    // Use SociaVault channel endpoint to resolve handle
+    const apiUrl = `${SOCIAVAULT_API_BASE}/youtube/channel`;
+    console.log(`[YouTube] Calling SociaVault API: ${apiUrl} with handle: ${cleanHandle}`);
+    
+    // Retry logic for timeout errors
+    let lastError;
+    const maxRetries = 2;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`[YouTube] Attempt ${attempt}/${maxRetries} to resolve channel`);
+        const response = await axios.get(apiUrl, {
+          params: {
+            handle: cleanHandle
+          },
+          headers: {
+            'X-API-Key': apiKey,
+            'User-Agent': 'LiteNews_AI/1.0'
+          },
+          timeout: 60000 // Increased to 60 seconds
+        });
+        
+        // If we get here, the request succeeded
+        lastError = null;
+        
+        console.log(`[YouTube] API response status: ${response.status}`);
+        console.log(`[YouTube] API response data keys:`, response.data ? Object.keys(response.data) : 'no data');
+        console.log(`[YouTube] API response preview:`, JSON.stringify(response.data).substring(0, 500));
+        
+        // SociaVault API wraps the actual data in response.data.data
+        const channelData = response.data?.data || response.data;
+        
+        if (channelData && channelData.channelId) {
+          console.log(`[YouTube] Successfully resolved channel: ${channelData.channelId} (${channelData.name})`);
+          
+          // Extract avatar URL from nested structure
+          let avatarUrl = null;
+          if (channelData.avatar) {
+            if (typeof channelData.avatar === 'string') {
+              avatarUrl = channelData.avatar;
+            } else if (channelData.avatar.url) {
+              avatarUrl = channelData.avatar.url;
+            } else if (channelData.avatar.image?.sources) {
+              // Try to get the highest quality avatar
+              // Sources are numbered keys like '0', '1', etc.
+              const sources = channelData.avatar.image.sources;
+              const sourceKeys = Object.keys(sources)
+                .filter(key => !isNaN(parseInt(key)))
+                .sort((a, b) => parseInt(b) - parseInt(a));
+              if (sourceKeys.length > 0) {
+                const bestSource = sources[sourceKeys[0]];
+                avatarUrl = bestSource?.url || bestSource;
+              }
+            }
+          }
+          
+          return {
+            channelId: channelData.channelId,
+            handle: handle,
+            displayName: channelData.name,
+            avatarUrl: avatarUrl
+          };
         }
-      });
-      
-      if (response.data.items && response.data.items.length > 0) {
-        const channel = response.data.items[0];
-        return {
-          channelId: channel.id,
-          handle: handle,
-          displayName: channel.snippet?.title,
-          avatarUrl: channel.snippet?.thumbnails?.high?.url || channel.snippet?.thumbnails?.default?.url
-        };
+        
+        console.error(`[YouTube] Channel not found in response data:`, response.data);
+        throw new Error('Channel not found');
+      } catch (error) {
+        lastError = error;
+        const isTimeout = error.code === 'ECONNABORTED' || error.message.includes('timeout');
+        
+        if (isTimeout && attempt < maxRetries) {
+          console.warn(`[YouTube] Timeout on attempt ${attempt}, retrying...`);
+          // Wait a bit before retrying
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          continue;
+        }
+        
+        // If not a timeout or last attempt, break and handle error below
+        if (!isTimeout || attempt === maxRetries) {
+          break;
+        }
       }
-    } catch (usernameError) {
-      // If forUsername fails, try searching for the channel
-      console.log(`forUsername lookup failed, trying search for: ${cleanHandle}`);
     }
     
-    // Try searching for the channel
-    const searchResponse = await axios.get(`${YOUTUBE_API_BASE}/search`, {
-      params: {
-        part: 'snippet',
-        q: cleanHandle,
-        type: 'channel',
-        maxResults: 1,
-        key: apiKey
-      },
-      timeout: 10000,
-      headers: {
-        'User-Agent': 'LiteNews_AI/1.0'
+    // If we get here, all retries failed or it's a non-timeout error
+    // Throw the last error to be caught by outer catch block
+    throw lastError || new Error('Failed to resolve channel after retries');
+  } catch (error) {
+    const isTimeout = error.code === 'ECONNABORTED' || error.message.includes('timeout');
+    console.error(`[YouTube] Error resolving channel for ${handle}:`, error.message);
+    if (isTimeout) {
+      console.error(`[YouTube] Request timed out after multiple retries. The API may be slow or the handle may be invalid.`);
+    }
+    
+    if (error.response) {
+      const status = error.response.status;
+      const errorData = error.response.data;
+      
+      console.error(`[YouTube] API error response - Status: ${status}`);
+      console.error(`[YouTube] API error response data:`, errorData);
+      
+      let errorMsg = 'Unknown error';
+      if (errorData) {
+        if (typeof errorData === 'string') {
+          errorMsg = errorData;
+        } else if (errorData.message) {
+          errorMsg = errorData.message;
+        } else if (errorData.error) {
+          errorMsg = errorData.error;
+        } else {
+          errorMsg = JSON.stringify(errorData).substring(0, 200);
+        }
+      } else {
+        errorMsg = error.response.statusText;
       }
+      
+      if (status === 404) {
+        throw new Error(`YouTube channel not found: ${handle}. Please verify the handle is correct.`);
+      } else if (status === 401 || status === 403) {
+        throw new Error(`SociaVault API authentication failed. Please check your SOCIAVAULT_API_KEY.`);
+      } else if (status === 402) {
+        throw new Error(`SociaVault API: Insufficient credits. Please check your account balance.`);
+      } else {
+        throw new Error(`SociaVault API error (${status}): ${errorMsg}`);
+      }
+    }
+    
+    console.error(`[YouTube] Non-API error details:`, {
+      message: error.message,
+      code: error.code,
+      stack: error.stack?.substring(0, 500)
     });
     
-    if (searchResponse.data.items && searchResponse.data.items.length > 0) {
-      const channel = searchResponse.data.items[0];
-      return {
-        channelId: channel.id.channelId,
-        handle: handle,
-        displayName: channel.snippet?.title,
-        avatarUrl: channel.snippet?.thumbnails?.high?.url || channel.snippet?.thumbnails?.default?.url
-      };
+    // Provide more helpful error message for timeouts
+    if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+      throw new Error(`Failed to resolve YouTube channel: Request timed out. The handle "${handle}" may be invalid or the API is slow. Please verify the handle is correct.`);
     }
     
-    throw new Error('Channel not found');
-  } catch (error) {
-    if (error.response) {
-      throw new Error(`YouTube API error: ${error.response.status} - ${error.response.data?.error?.message || error.response.statusText}`);
-    }
     throw new Error(`Failed to resolve YouTube channel: ${error.message}`);
   }
 }
@@ -103,138 +185,201 @@ async function resolveChannel(handle) {
 async function getChannelInfo(channelId) {
   try {
     const apiKey = getApiKey();
-    const response = await axios.get(`${YOUTUBE_API_BASE}/channels`, {
+    const response = await axios.get(`${SOCIAVAULT_API_BASE}/youtube/channel`, {
       params: {
-        part: 'id,snippet,contentDetails,statistics',
-        id: channelId,
-        key: apiKey
+        channelId: channelId
       },
-      timeout: 10000,
       headers: {
+        'X-API-Key': apiKey,
         'User-Agent': 'LiteNews_AI/1.0'
-      }
+      },
+      timeout: 60000 // Increased to 60 seconds
     });
     
-    if (response.data.items && response.data.items.length > 0) {
-      return response.data.items[0];
+    // SociaVault API wraps the actual data in response.data.data
+    const channelData = response.data?.data || response.data;
+    
+    if (channelData && channelData.channelId) {
+      return channelData;
     }
     
     throw new Error('Channel not found');
   } catch (error) {
     if (error.response) {
-      throw new Error(`YouTube API error: ${error.response.status} - ${error.response.data?.error?.message || error.response.statusText}`);
+      const status = error.response.status;
+      const errorData = error.response.data;
+      
+      let errorMsg = 'Unknown error';
+      if (errorData) {
+        if (typeof errorData === 'string') {
+          errorMsg = errorData;
+        } else if (errorData.message) {
+          errorMsg = errorData.message;
+        } else if (errorData.error) {
+          errorMsg = errorData.error;
+        } else {
+          errorMsg = JSON.stringify(errorData).substring(0, 200);
+        }
+      } else {
+        errorMsg = error.response.statusText;
+      }
+      
+      if (status === 404) {
+        throw new Error(`YouTube channel not found: ${channelId}`);
+      } else if (status === 401 || status === 403) {
+        throw new Error(`SociaVault API authentication failed. Please check your SOCIAVAULT_API_KEY.`);
+      } else if (status === 402) {
+        throw new Error(`SociaVault API: Insufficient credits. Please check your account balance.`);
+      } else {
+        throw new Error(`SociaVault API error (${status}): ${errorMsg}`);
+      }
     }
     throw new Error(`Failed to fetch channel info: ${error.message}`);
   }
 }
 
 /**
- * Get uploads playlist ID from channel
+ * Fetch videos from a channel using SociaVault API
  */
-function getUploadsPlaylistId(channel) {
-  return channel.contentDetails?.relatedPlaylists?.uploads;
-}
-
-/**
- * Fetch videos from a playlist
- */
-async function fetchPlaylistVideos(playlistId, limit = 20) {
+async function fetchChannelVideos(channelId, limit = 20) {
   try {
+    console.log(`[YouTube] Fetching channel videos for channelId: ${channelId}, limit: ${limit}`);
     const apiKey = getApiKey();
     const videos = [];
-    let nextPageToken = null;
-    const maxResults = Math.min(limit, 50); // YouTube API max is 50 per request
+    let continuationToken = null;
+    let pageCount = 0;
     
     do {
-      const response = await axios.get(`${YOUTUBE_API_BASE}/playlistItems`, {
+      pageCount++;
+      console.log(`[YouTube] Fetching page ${pageCount} for channelId: ${channelId}`);
+      
+      const response = await axios.get(`${SOCIAVAULT_API_BASE}/youtube/channel-videos`, {
         params: {
-          part: 'snippet,contentDetails',
-          playlistId: playlistId,
-          maxResults: maxResults,
-          pageToken: nextPageToken,
-          key: apiKey
+          channelId: channelId,
+          sort: 'latest',
+          includeExtras: true, // Get like + comment count and description
+          ...(continuationToken && { continuationToken: continuationToken })
         },
-        timeout: 15000,
         headers: {
+          'X-API-Key': apiKey,
           'User-Agent': 'LiteNews_AI/1.0'
-        }
+        },
+        timeout: 60000 // Increased to 60 seconds
       });
       
-      if (response.data.items) {
-        videos.push(...response.data.items);
+      console.log(`[YouTube] API response status: ${response.status}`);
+      console.log(`[YouTube] Response data keys:`, response.data ? Object.keys(response.data) : 'no data');
+      
+      // SociaVault API wraps the actual data in response.data.data
+      const videoData = response.data?.data || response.data;
+      console.log(`[YouTube] Video data keys:`, videoData ? Object.keys(videoData) : 'no videoData');
+      console.log(`[YouTube] Video data preview:`, JSON.stringify(videoData).substring(0, 500));
+      
+      if (videoData && videoData.videos) {
+        const videoArray = Array.isArray(videoData.videos) 
+          ? videoData.videos 
+          : Object.values(videoData.videos);
+        
+        console.log(`[YouTube] Found ${videoArray.length} videos in this page`);
+        videos.push(...videoArray);
+      } else {
+        console.warn(`[YouTube] No videos found in response data`);
+        console.warn(`[YouTube] Full response data structure:`, JSON.stringify(response.data).substring(0, 2000));
       }
       
-      nextPageToken = response.data.nextPageToken;
+      // Get continuation token from nested structure
+      continuationToken = videoData?.continuationToken || response.data?.continuationToken;
+      
+      console.log(`[YouTube] Has continuation token: ${!!continuationToken}, Total videos so far: ${videos.length}`);
       
       // Break if we have enough videos or no more pages
-      if (videos.length >= limit || !nextPageToken) {
+      if (videos.length >= limit || !continuationToken) {
         break;
       }
-    } while (nextPageToken && videos.length < limit);
+    } while (continuationToken && videos.length < limit);
     
-    // Get detailed video statistics
-    const videoIds = videos.slice(0, limit).map(v => v.contentDetails?.videoId).filter(Boolean);
-    
-    if (videoIds.length === 0) {
-      return [];
-    }
-    
-    // Fetch video statistics and details
-    const videoDetailsResponse = await axios.get(`${YOUTUBE_API_BASE}/videos`, {
-      params: {
-        part: 'id,snippet,statistics,contentDetails',
-        id: videoIds.join(','),
-        key: apiKey
-      },
-      timeout: 15000,
-      headers: {
-        'User-Agent': 'LiteNews_AI/1.0'
-      }
-    });
-    
-    return videoDetailsResponse.data.items || [];
+    // Limit to requested number
+    const result = videos.slice(0, limit);
+    console.log(`[YouTube] Returning ${result.length} videos (requested ${limit})`);
+    return result;
   } catch (error) {
+    console.error(`[YouTube] Error fetching channel videos for ${channelId}:`, error.message);
+    
     if (error.response) {
-      throw new Error(`YouTube API error: ${error.response.status} - ${error.response.data?.error?.message || error.response.statusText}`);
+      const status = error.response.status;
+      const errorData = error.response.data;
+      
+      console.error(`[YouTube] API error response - Status: ${status}`);
+      console.error(`[YouTube] API error response data:`, errorData);
+      
+      let errorMsg = 'Unknown error';
+      if (errorData) {
+        if (typeof errorData === 'string') {
+          errorMsg = errorData;
+        } else if (errorData.message) {
+          errorMsg = errorData.message;
+        } else if (errorData.error) {
+          errorMsg = errorData.error;
+        } else {
+          errorMsg = JSON.stringify(errorData).substring(0, 200);
+        }
+      } else {
+        errorMsg = error.response.statusText;
+      }
+      
+      if (status === 404) {
+        throw new Error(`YouTube channel videos not found: ${channelId}`);
+      } else if (status === 401 || status === 403) {
+        throw new Error(`SociaVault API authentication failed. Please check your SOCIAVAULT_API_KEY.`);
+      } else if (status === 402) {
+        throw new Error(`SociaVault API: Insufficient credits. Please check your account balance.`);
+      } else {
+        throw new Error(`SociaVault API error (${status}): ${errorMsg}`);
+      }
     }
-    throw new Error(`Failed to fetch playlist videos: ${error.message}`);
+    
+    console.error(`[YouTube] Non-API error details:`, {
+      message: error.message,
+      stack: error.stack?.substring(0, 500)
+    });
+    throw new Error(`Failed to fetch channel videos: ${error.message}`);
   }
 }
 
 /**
  * Normalize YouTube video to common post format
+ * Maps SociaVault API response to our standard format
  */
 function normalizePost(video, handle, channelInfo) {
-  const snippet = video.snippet || {};
-  const statistics = video.statistics || {};
+  // SociaVault API response structure
+  const videoId = video.id || video.videoId;
+  const title = video.title || '';
+  const description = video.description || '';
+  const publishedAt = video.publishDate ? new Date(video.publishDate) : 
+                     (video.publishDateText ? new Date(video.publishDateText) : new Date());
   
-  const title = snippet.title || '';
-  const description = snippet.description || '';
-  const publishedAt = snippet.publishedAt ? new Date(snippet.publishedAt) : new Date();
-  
-  // Extract engagement metrics
-  const viewCount = parseInt(statistics.viewCount || 0, 10);
-  const likeCount = parseInt(statistics.likeCount || 0, 10);
-  const commentCount = parseInt(statistics.commentCount || 0, 10);
+  // Extract engagement metrics from SociaVault response
+  const viewCount = video.viewCountInt || parseInt(video.viewCount || 0, 10);
+  const likeCount = video.likeCountInt || parseInt(video.likeCount || 0, 10);
+  const commentCount = video.commentCountInt || parseInt(video.commentCount || 0, 10);
   
   // Calculate popularity score: views/1000 + likes*2 + comments*0.5
   // This gives weight to engagement while considering view count
   const popularityScore = (viewCount / 1000) + (likeCount * 2) + (commentCount * 0.5);
   
   // Extract thumbnail
-  const thumbnailUrl = snippet.thumbnails?.high?.url || 
-                       snippet.thumbnails?.medium?.url || 
-                       snippet.thumbnails?.default?.url;
+  const thumbnailUrl = video.thumbnail || video.thumbnails?.high?.url || 
+                       video.thumbnails?.medium?.url || 
+                       video.thumbnails?.default?.url;
   
   // Construct video URL
-  const videoId = video.id;
-  const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+  const videoUrl = video.url || `https://www.youtube.com/watch?v=${videoId}`;
   
-  // Extract tags
-  const tags = snippet.tags || [];
+  // Extract tags/keywords
+  const tags = video.keywords || video.tags || [];
   
   // Extract duration if available
-  const duration = video.contentDetails?.duration;
+  const duration = video.durationFormatted || video.durationMs;
   
   return {
     platform: 'youtube',
@@ -246,8 +391,8 @@ function normalizePost(video, handle, channelInfo) {
     publishedAt: publishedAt,
     author: {
       handle: handle,
-      displayName: channelInfo?.displayName || snippet.channelTitle || handle,
-      avatarUrl: channelInfo?.avatarUrl || snippet.thumbnails?.default?.url
+      displayName: channelInfo?.displayName || channelInfo?.name || video.channel?.name || handle,
+      avatarUrl: channelInfo?.avatarUrl || channelInfo?.avatar?.url || video.channel?.avatar?.url
     },
     engagement: {
       likes: likeCount,
@@ -257,7 +402,7 @@ function normalizePost(video, handle, channelInfo) {
     },
     metadata: {
       mediaUrls: thumbnailUrl ? [thumbnailUrl] : [],
-      tags: tags,
+      tags: Array.isArray(tags) ? tags : [],
       duration: duration,
       videoId: videoId
     }
@@ -269,43 +414,68 @@ function normalizePost(video, handle, channelInfo) {
  */
 async function fetchYouTubeFeed(handle, limit = 20) {
   try {
-    // Resolve channel
+    console.log(`[YouTube] Starting feed fetch for handle: ${handle}, limit: ${limit}`);
+    
+    // Resolve channel (this already gets basic channel info)
     const channelInfo = await resolveChannel(handle);
+    console.log(`[YouTube] Channel resolved:`, {
+      channelId: channelInfo.channelId,
+      displayName: channelInfo.displayName,
+      handle: channelInfo.handle
+    });
     
-    // Get full channel information
-    const channel = await getChannelInfo(channelInfo.channelId);
+    // Fetch videos from channel
+    console.log(`[YouTube] Fetching videos for channelId: ${channelInfo.channelId}`);
+    const videos = await fetchChannelVideos(channelInfo.channelId, limit);
+    console.log(`[YouTube] Fetched ${videos.length} videos`);
     
-    // Get uploads playlist ID
-    const uploadsPlaylistId = getUploadsPlaylistId(channel);
-    if (!uploadsPlaylistId) {
-      throw new Error('Could not find uploads playlist for channel');
+    if (videos.length === 0) {
+      throw new Error(`No videos found for channel: ${handle}`);
     }
     
-    // Fetch videos from uploads playlist
-    const videos = await fetchPlaylistVideos(uploadsPlaylistId, limit);
+    // Extract channel info from first video if available (fallback)
+    const firstVideo = videos[0];
+    const channelName = channelInfo.displayName || firstVideo?.channel?.name || handle;
+    const channelAvatar = channelInfo.avatarUrl || firstVideo?.channel?.avatar?.url || firstVideo?.channel?.avatar;
+    
+    console.log(`[YouTube] Using channel info:`, {
+      name: channelName,
+      hasAvatar: !!channelAvatar
+    });
     
     // Normalize posts
     const posts = videos.map(video => normalizePost(video, handle, {
-      displayName: channelInfo.displayName || channel.snippet?.title,
-      avatarUrl: channelInfo.avatarUrl || channel.snippet?.thumbnails?.high?.url
+      displayName: channelName,
+      avatarUrl: channelAvatar,
+      name: channelName
     }));
+    
+    console.log(`[YouTube] Successfully fetched feed for ${handle}: ${posts.length} posts`);
     
     return {
       handle: handle,
-      displayName: channelInfo.displayName || channel.snippet?.title || handle,
-      avatarUrl: channelInfo.avatarUrl || channel.snippet?.thumbnails?.high?.url,
+      displayName: channelName,
+      avatarUrl: channelAvatar,
       posts: posts
     };
   } catch (error) {
-    console.error(`Error fetching YouTube feed for ${handle}:`, error.message);
+    console.error(`[YouTube] Error fetching YouTube feed for ${handle}:`, error.message);
+    console.error(`[YouTube] Error stack:`, error.stack?.substring(0, 500));
     throw error;
   }
+}
+
+// Legacy function names for backward compatibility
+async function fetchPlaylistVideos(channelId, limit = 20) {
+  // This function is kept for backward compatibility but now uses channel videos
+  return fetchChannelVideos(channelId, limit);
 }
 
 module.exports = {
   fetchYouTubeFeed,
   resolveChannel,
   getChannelInfo,
-  fetchPlaylistVideos,
+  fetchChannelVideos,
+  fetchPlaylistVideos, // Legacy alias
   normalizePost
 };

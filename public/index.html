@@ -2067,8 +2067,7 @@
 
         function SocialMediaHandleCard({ handle, feed, timeframe = '24h', sort = 'updatedAt', onAddToDraft, drafts }) {
             const allPosts = feed?.posts || [];
-            const platformBadge = handle.platform === 'mastodon' ? '🐘' : 
-                                   handle.platform === 'x' ? '𝕏' : 
+            const platformBadge = handle.platform === 'x' ? '𝕏' : 
                                    handle.platform === 'instagram' ? '📷' : '▶️';
 
             // Parse timeframe and calculate cutoff date
@@ -2933,8 +2932,7 @@
                                         <div className="social-feed-header">
                                             <div className="social-feed-handle">
                                                 <span style={{ fontSize: '1.2rem' }}>
-                                                    {post.platform === 'mastodon' ? '🐘' : 
-                                                     post.platform === 'x' ? '𝕏' : 
+                                                    {post.platform === 'x' ? '𝕏' : 
                                                      post.platform === 'instagram' ? '📷' : '▶️'}
                                                 </span>
                                                 <div className="social-feed-handle-info">
@@ -3201,7 +3199,7 @@
             const [editingUser, setEditingUser] = useState(null);
             const [userForm, setUserForm] = useState({ name: '', password: '', role: 'USER', email: '' });
             const [sourceForm, setSourceForm] = useState({ name: '', type: 'rss', url: '', remark: '' });
-            const [socialHandleForm, setSocialHandleForm] = useState({ platform: 'mastodon', handle: '', instanceBaseUrl: '', displayName: '', remark: '', isActive: true });
+            const [socialHandleForm, setSocialHandleForm] = useState({ platform: 'youtube', handle: '', instanceBaseUrl: '', displayName: '', remark: '', isActive: true });
 
             useEffect(() => {
                 loadData();
@@ -3363,7 +3361,7 @@
 
                     if (res.ok) {
                         showMessage('社交媒體帳號建立成功', 'success');
-                        setSocialHandleForm({ platform: 'mastodon', handle: '', instanceBaseUrl: '', displayName: '', remark: '', isActive: true });
+                        setSocialHandleForm({ platform: 'youtube', handle: '', instanceBaseUrl: '', displayName: '', remark: '', isActive: true });
                         loadData();
                     } else {
                         const data = await res.json();
@@ -3717,7 +3715,7 @@
                                 <h2>社交媒體帳號管理</h2>
                             </div>
                             <p style={{ color: 'var(--text-light)', marginBottom: '1rem' }}>
-                                管理要追蹤的社交媒體帳號（Mastodon、YouTube、X、Instagram）
+                                管理要追蹤的社交媒體帳號（YouTube、X、Instagram）
                             </p>
 
                             <div style={{ padding: '1rem', background: 'var(--bg)', borderRadius: '8px', marginBottom: '1rem' }}>
@@ -3728,7 +3726,6 @@
                                         value={socialHandleForm.platform}
                                         onChange={(e) => setSocialHandleForm({ ...socialHandleForm, platform: e.target.value })}
                                     >
-                                        <option value="mastodon">Mastodon</option>
                                         <option value="youtube">YouTube</option>
                                         <option value="x">X (Twitter)</option>
                                         <option value="instagram">Instagram</option>
@@ -3740,15 +3737,6 @@
                                         value={socialHandleForm.handle}
                                         onChange={(e) => setSocialHandleForm({ ...socialHandleForm, handle: e.target.value })}
                                     />
-                                    {socialHandleForm.platform === 'mastodon' && (
-                                        <input
-                                            type="text"
-                                            className="form-control"
-                                            placeholder="實例網址（選填，例如：https://mastodon.social）"
-                                            value={socialHandleForm.instanceBaseUrl}
-                                            onChange={(e) => setSocialHandleForm({ ...socialHandleForm, instanceBaseUrl: e.target.value })}
-                                        />
-                                    )}
                                     <input
                                         type="text"
                                         className="form-control"
@@ -3790,17 +3778,13 @@
                                     }}>
                                         <div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                <span>{handle.platform === 'mastodon' ? '🐘' : 
-                                                        handle.platform === 'x' ? '𝕏' : 
+                                                <span>{handle.platform === 'x' ? '𝕏' : 
                                                         handle.platform === 'instagram' ? '📷' : '▶️'}</span>
                                                 <strong>{handle.displayName || handle.handle}</strong>
                                                 {!handle.isActive && <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>(已停用)</span>}
                                             </div>
                                             <div style={{ fontSize: '0.875rem', color: 'var(--text-light)', marginTop: '0.25rem' }}>
                                                 @{handle.handle}
-                                                {handle.platform === 'mastodon' && handle.instanceBaseUrl && (
-                                                    <span> • {handle.instanceBaseUrl}</span>
-                                                )}
                                                 {handle.remark && <span> • {handle.remark}</span>}
                                             </div>
                                             {handle.lastFetchedAt && (
