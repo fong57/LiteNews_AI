@@ -6,7 +6,7 @@ const { subHours, subDays } = require('date-fns');
 const NewsItem = require('../models/NewsItem');
 const FeedSource = require('../models/FeedSource');
 const { findUserByIdOrName } = require('../utils/userHelper');
-const { generateNewsEmbedding, isAvailable: isEmbeddingAvailable } = require('./embedding');
+const { generateNewsEmbedding, isAvailable: isEmbeddingAvailable, getDiagnostics } = require('./embedding');
 
 const parser = new Parser({
   timeout: 10000,
@@ -214,7 +214,19 @@ async function fetchNewsForUser(userId, timeframe = '24h') {
       }
       console.log(`   ✅ Embeddings generated for ${newItems.length} items`);
     } else {
+      // Get detailed diagnostic information
+      const diagnostics = getDiagnostics();
       console.log(`   ⚠️ Embedding service not available, skipping embedding generation`);
+      
+      if (diagnostics.status !== 'available') {
+        console.log(`   Status: ${diagnostics.status}`);
+        if (diagnostics.error) {
+          console.log(`   Error: ${diagnostics.error}`);
+        }
+        if (diagnostics.suggestedFix) {
+          console.log(`   Fix: ${diagnostics.suggestedFix}`);
+        }
+      }
     }
   }
   

@@ -5,18 +5,20 @@ An AI-powered news aggregation and recommendation system that fetches news from 
 ## 🎯 Project Overview
 
 LiteNews AI is a full-stack application that:
-- **Aggregates** news from RSS feeds and websites
-- **Embeds** articles using Sentence-BERT for semantic understanding
+- **Aggregates** news from RSS feeds, websites, and social media platforms
+- **Embeds** articles using FastEmbed for semantic understanding
 - **Clusters** related articles using vector similarity (MongoDB Atlas Vector Search)
 - **Categorizes** topics (not individual items) using AI/LLM
 - **Ranks** topics by relevance and user preferences
 - **Personalizes** content based on user feedback and preferences
+- **Fetches** social media feeds from Mastodon, YouTube, X (Twitter), and Instagram
 
 ## ✨ Features
 
 ### Core Functionality
-- **Multi-source News Fetching**: Fetch from RSS feeds and websites
-- **Semantic Embeddings**: Generate 384-dimensional embeddings using Sentence-BERT
+- **Multi-source News Fetching**: Fetch from RSS feeds, websites, and social media platforms
+- **Social Media Integration**: Fetch feeds from Mastodon, YouTube, X (Twitter), and Instagram
+- **Semantic Embeddings**: Generate 384-dimensional embeddings using FastEmbed
 - **Vector-based Clustering**: Group related articles using cosine similarity
 - **AI-powered Topic Categorization**: Categorize topics using LLM (Perplexity or mock mode)
 - **Smart Ranking**: Rank topics by discussion score, recency, and user preferences
@@ -28,7 +30,9 @@ LiteNews AI is a full-stack application that:
 - JWT-based authentication
 - RESTful API with rate limiting
 - MongoDB Atlas integration with Vector Search
-- Sentence-BERT embeddings via @xenova/transformers
+- FastEmbed embeddings (no Sharp dependency, robust and stable)
+- Enhanced embedding diagnostics with error handling and recovery
+- Social media API integrations (SociaVault for X/Instagram, YouTube Data API)
 - Responsive React frontend (CDN-based, no build step)
 - Mock LLM mode for testing without external APIs
 - Real-time news processing
@@ -39,7 +43,7 @@ LiteNews AI is a full-stack application that:
 - **Node.js** + **Express** - REST API server
 - **MongoDB Atlas** - Cloud database with Vector Search (M10+)
 - **Mongoose** - ODM for MongoDB
-- **@xenova/transformers** - Sentence-BERT embeddings (all-MiniLM-L6-v2)
+- **fastembed** - Fast, lightweight embeddings (BGE-small-en-v1.5, no Sharp dependency)
 - **JWT** - Authentication
 - **RSS Parser** - RSS feed parsing
 - **Cheerio** - Web scraping
@@ -55,6 +59,8 @@ LiteNews AI is a full-stack application that:
 - Node.js (v18 or higher recommended)
 - MongoDB Atlas M10+ cluster (for Vector Search support)
 - (Optional) Perplexity API key for AI features
+- (Optional) SociaVault API key for X (Twitter) and Instagram feeds
+- (Optional) YouTube Data API key for YouTube channel feeds
 
 ## 🚀 Installation
 
@@ -68,7 +74,7 @@ LiteNews AI is a full-stack application that:
    ```bash
    npm install
    ```
-   > Note: First run will download the Sentence-BERT model (~90MB) to `.cache/transformers/`
+   > Note: First run will download the embedding model (~100MB) to `.cache/fastembed/`
 
 3. **Configure environment variables**
    ```bash
@@ -81,6 +87,8 @@ LiteNews AI is a full-stack application that:
    - `PORT` - Server port (default: 4250)
    - `LLM_MODE` - AI provider: `perplexity` or `mock`
    - `PERPLEXITY_API_KEY` - Perplexity API key (if using)
+   - `SOCIAVAULT_API_KEY` - SociaVault API key for X/Instagram (optional)
+   - `YOUTUBE_API_KEY` - YouTube Data API key for YouTube feeds (optional)
 
 4. **Initialize the database**
    
@@ -129,10 +137,13 @@ LiteNews AI is a full-stack application that:
 | `LLM_MODE` | LLM provider: `perplexity` or `mock` | `mock` |
 | `PERPLEXITY_API_KEY` | Perplexity AI API key | Required if `LLM_MODE=perplexity` |
 | `PERPLEXITY_MODEL` | Perplexity model name | `llama-3.1-sonar-small-128k-online` |
-| `EMBEDDING_MODEL` | Sentence-BERT model | `Xenova/all-MiniLM-L6-v2` |
+| `EMBEDDING_MODEL` | FastEmbed model name | `BGE_SMALL_EN` |
 | `CLUSTERING_THRESHOLD` | Similarity threshold (0.0-1.0) | `0.65` |
 | `MIN_CLUSTER_SIZE` | Minimum items per cluster | `1` |
 | `MAX_CLUSTER_SIZE` | Maximum items per cluster | `20` |
+| `SOCIAVAULT_API_KEY` | SociaVault API key for X/Instagram | Required for X/Instagram feeds |
+| `YOUTUBE_API_KEY` | YouTube Data API v3 key | Required for YouTube feeds |
+| `MASTODON_INSTANCE_BASE_URL` | Default Mastodon instance URL | Optional (for Mastodon feeds) |
 
 ### Setting Up News Sources
 
@@ -141,6 +152,61 @@ LiteNews AI is a full-stack application that:
 3. Add RSS feeds or website URLs
 4. Set categories you're interested in
 5. Configure default timeframe
+
+### Setting Up Social Media Feeds
+
+**Prerequisites:**
+- For **X (Twitter)** and **Instagram**: Get a SociaVault API key from https://sociavault.com/dashboard
+- For **YouTube**: Get a YouTube Data API v3 key from Google Cloud Console
+- For **Mastodon**: No API key required (public feeds)
+
+**Steps:**
+1. Add API keys to your `.env` file:
+   ```bash
+   SOCIAVAULT_API_KEY=sk_live_xxxxxxxxxxxxx
+   YOUTUBE_API_KEY=your-youtube-api-key-here
+   MASTODON_INSTANCE_BASE_URL=https://mastodon.social  # Optional
+   ```
+
+2. Use the admin API endpoints to create social handles:
+   ```bash
+   # Example: Create X handle
+   POST /api/social/admin/handles
+   {
+     "platform": "x",
+     "handle": "@username",
+     "isActive": true
+   }
+   
+   # Example: Create YouTube handle
+   POST /api/social/admin/handles
+   {
+     "platform": "youtube",
+     "handle": "channel_id_or_username",
+     "isActive": true
+   }
+   ```
+
+3. Fetch feeds:
+   ```bash
+   # Fetch all active handles
+   POST /api/social/fetch
+   
+   # Or fetch specific handle
+   POST /api/social/admin/handles/:handleId/fetch
+   ```
+
+4. View feeds:
+   ```bash
+   # Get feed for a handle
+   GET /api/social/feed?handleId=<id>&sort=recency&limit=20
+   ```
+
+**Supported Platforms:**
+- **Mastodon**: Public feeds, no API key required
+- **YouTube**: Requires YouTube Data API v3 key
+- **X (Twitter)**: Requires SociaVault API key
+- **Instagram**: Requires SociaVault API key
 
 ## 📡 API Endpoints
 
@@ -176,6 +242,16 @@ LiteNews AI is a full-stack application that:
 - `GET /api/topics?category=<category>&limit=<limit>` - Get topics by category (protected)
 - `POST /api/topics/:topicId/feedback` - Submit feedback (up/down) (protected)
 
+### Social Media Feeds
+- `GET /api/social/handles` - Get all active social handles (protected)
+- `GET /api/social/feed?handleId=<id>&sort=<recency|popularity|updatedAt>&limit=<n>` - Get feed for a handle (protected)
+- `POST /api/social/fetch` - Fetch/refresh feeds for all active handles (protected)
+- `GET /api/social/admin/handles` - Get all social handles (admin only)
+- `POST /api/social/admin/handles` - Create social handle (admin only)
+- `PUT /api/social/admin/handles/:handleId` - Update social handle (admin only)
+- `DELETE /api/social/admin/handles/:handleId` - Delete social handle (admin only)
+- `POST /api/social/admin/handles/:handleId/fetch` - Fetch feed for specific handle (admin only)
+
 ### Health
 - `GET /api/health` - Health check endpoint
 
@@ -193,7 +269,9 @@ LiteNews_AI/
 │   ├── NewsItem.js          # News article model (with embeddings)
 │   ├── Topic.js             # Topic model (with category)
 │   ├── FeedSource.js        # Feed source model
-│   └── Category.js          # Category model
+│   ├── Category.js          # Category model
+│   ├── SocialHandle.js      # Social media handle model
+│   └── SocialPost.js        # Social media post model
 │
 ├── routes/                   # Express routes
 │   ├── auth.js              # Authentication routes
@@ -201,11 +279,12 @@ LiteNews_AI/
 │   ├── preferences.js       # User preferences routes
 │   ├── news.js              # News fetching/processing routes
 │   ├── topics.js            # Topic routes
-│   └── admin.js             # Admin routes (categories, sources)
+│   ├── admin.js             # Admin routes (categories, sources)
+│   └── social.js            # Social media feed routes
 │
 ├── services/                 # Business logic
 │   ├── embedding/           # Semantic embedding service
-│   │   └── index.js         # Sentence-BERT embeddings (@xenova/transformers)
+│   │   └── index.js         # FastEmbed embeddings (no Sharp dependency)
 │   ├── llm/                 # LLM provider system
 │   │   ├── index.js         # Provider switch/router
 │   │   └── providers/       # Individual LLM providers
@@ -213,7 +292,13 @@ LiteNews_AI/
 │   │       └── perplexity.js # Perplexity AI API
 │   ├── newsFetcher.js       # RSS/web scraping + embedding generation
 │   ├── topicGrouper.js      # Vector clustering + topic categorization
-│   └── rankingService.js    # Topic ranking service
+│   ├── rankingService.js    # Topic ranking service
+│   └── socialFeedFetcher/   # Social media feed fetchers
+│       ├── index.js         # Main fetcher orchestrator
+│       ├── mastodon.js      # Mastodon feed fetcher
+│       ├── youtube.js        # YouTube feed fetcher
+│       ├── x.js             # X (Twitter) feed fetcher
+│       └── instagram.js     # Instagram feed fetcher
 │
 ├── middleware/               # Express middleware
 │   └── auth.js              # JWT authentication middleware
@@ -232,8 +317,10 @@ LiteNews_AI/
 │   ├── setup-vector-index.js # Create MongoDB Atlas vector search index
 │   └── test-perplexity.js   # Test Perplexity API connection
 │
-└── .cache/                   # Cache directory (auto-created)
-    └── transformers/        # Downloaded Sentence-BERT model files
+├── .cache/                   # Cache directory (auto-created)
+│   └── fastembed/          # Downloaded FastEmbed model files
+└── local_cache/             # Local model cache (auto-created)
+    └── fast-bge-small-en/  # Extracted FastEmbed model files
 ```
 
 ## 🎨 Frontend
@@ -287,7 +374,7 @@ PERPLEXITY_MODEL=llama-3.1-sonar-small-128k-online
 LLM_MODE=mock
 
 # Embedding configuration (optional)
-EMBEDDING_MODEL=Xenova/all-MiniLM-L6-v2
+EMBEDDING_MODEL=BGE_SMALL_EN
 CLUSTERING_THRESHOLD=0.65
 ```
 
@@ -375,7 +462,7 @@ If `npm run setup-vector-index` fails, create the index manually in MongoDB Atla
 ```
 1. Fetch News (newsFetcher.js)
    └── Parse RSS/scrape websites
-   └── Generate Sentence-BERT embeddings (384 dimensions)
+   └── Generate FastEmbed embeddings (384 dimensions)
    └── Save to NewsItem collection
 
 2. Cluster & Categorize (topicGrouper.js)
@@ -411,9 +498,13 @@ If `npm run setup-vector-index` fails, create the index manually in MongoDB Atla
 - System will fallback to manual cosine similarity if unavailable
 
 ### Embedding Model Issues
-- First run downloads ~90MB model to `.cache/transformers/`
-- Ensure sufficient disk space
+- First run downloads ~100MB model to `.cache/fastembed/` or `local_cache/`
+- Enhanced diagnostics: Check embedding service status with detailed error messages
+- Corrupted model files: Delete `local_cache/` directory and restart to re-download
+- Internet connectivity: Required for first-time model download from Hugging Face
+- Ensure sufficient disk space (~100MB required)
 - Check Node.js version (v18+ recommended)
+- Model extraction: System automatically handles incomplete extractions from tar.gz archives
 
 ### "User not found" Errors
 - Make sure admin user exists: Run `npm run setup` or `npm run create-admin`
@@ -426,6 +517,18 @@ If `npm run setup-vector-index` fails, create the index manually in MongoDB Atla
 ### Frontend Not Loading
 - Check server is running on correct port
 - Verify static files are being served from `public/` directory
+
+### Social Media Feed Issues
+- **X (Twitter) / Instagram**: Requires valid `SOCIAVAULT_API_KEY` in `.env`
+  - Get API key at: https://sociavault.com/dashboard
+  - 50 free credits to start, then pay-per-request
+- **YouTube**: Requires valid `YOUTUBE_API_KEY` in `.env`
+  - Get API key at: https://console.cloud.google.com/apis/credentials
+  - Enable YouTube Data API v3 in your Google Cloud project
+- **Mastodon**: No API key required for public feeds
+  - Optionally set `MASTODON_INSTANCE_BASE_URL` for default instance
+- Verify handle format: Use `@username` for X/Instagram, channel ID or username for YouTube
+- Check API rate limits and account credits
 
 ## 📄 License
 

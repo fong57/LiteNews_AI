@@ -60,6 +60,7 @@ const preferencesRoutes = require('./routes/preferences.js');
 const newsRoutes = require('./routes/news.js');
 const topicsRoutes = require('./routes/topics.js');
 const adminRoutes = require('./routes/admin.js');
+const socialRoutes = require('./routes/social.js');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -67,6 +68,7 @@ app.use('/api/preferences', preferencesRoutes);
 app.use('/api/news', newsRoutes);
 app.use('/api/topics', topicsRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/social', socialRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LiteNews AI - 個人化新聞聚合</title>
+    <title>News AI - Demo</title>
     <!-- React & Babel CDN -->
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
@@ -274,6 +274,237 @@
             margin-bottom: 0.75rem;
         }
 
+        .topic-tag {
+            display: inline-block;
+            padding: 0.25rem 0.625rem;
+            background: var(--bg);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 400;
+        }
+
+        /* Categories Section */
+        .categories-section {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        /* Category Card */
+        .category-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 0.625rem 0.875rem;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .category-title {
+            font-size: 0.9375rem;
+            font-weight: 700;
+            color: var(--primary);
+            min-width: fit-content;
+            padding-right: 0.75rem;
+            border-right: 2px solid var(--border);
+            display: flex;
+            align-items: flex-start;
+            justify-content: flex-start;
+            white-space: nowrap;
+        }
+
+        .category-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        /* Social Feed Cards Grid */
+        .social-feed-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        /* Social Feed Card */
+        .social-feed-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 1rem;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .social-feed-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .social-feed-handle {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex: 1;
+        }
+
+        .social-feed-handle-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .social-feed-handle-name {
+            font-size: 0.9375rem;
+            font-weight: 700;
+            color: var(--primary);
+            line-height: 1.2;
+        }
+
+        .social-feed-handle-username {
+            font-size: 0.75rem;
+            color: var(--text-light);
+            margin-top: 0.25rem;
+        }
+
+        /* Social Section - now merged with categories */
+        .social-sort-toggle {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .social-posts-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .social-post-row {
+            padding: 0.75rem;
+            background: var(--bg);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            transition: all 0.2s;
+        }
+
+        .social-post-row:hover {
+            background: var(--card-bg);
+            border-color: var(--primary);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transform: translateY(-1px);
+        }
+
+        .social-post-content {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .social-post-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .empty-topics {
+            text-align: center;
+            padding: 1rem;
+            color: var(--text-light);
+            font-size: 0.75rem;
+        }
+
+        /* Topics List */
+        .topics-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        /* Topic Row */
+        .topic-row {
+            display: flex;
+            flex-direction: column;
+            gap: 0.375rem;
+            padding: 0.5rem 0.625rem;
+            background: var(--bg);
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .topic-row:hover {
+            background: var(--card-bg);
+            border-color: var(--primary);
+            box-shadow: var(--shadow);
+        }
+
+        .topic-row-first {
+            display: flex;
+            align-items: center;
+            width: 100%;
+        }
+
+        .topic-row-name {
+            flex: 1;
+            font-weight: 600;
+            color: var(--text);
+            font-size: 0.75rem;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .topic-row-second {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            width: 100%;
+        }
+
+        .topic-row-tags {
+            display: flex;
+            gap: 0.25rem;
+            flex-wrap: wrap;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .topic-tag-small {
+            display: inline-block;
+            padding: 0.125rem 0.35rem;
+            background: var(--card-bg);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 0.625rem;
+            font-weight: 400;
+            white-space: nowrap;
+        }
+
+        .topic-row-actions {
+            display: flex;
+            gap: 0.25rem;
+            flex-shrink: 0;
+        }
+
+        .btn-icon-small {
+            padding: 0.2rem 0.3rem;
+            font-size: 0.7rem;
+        }
+
         .topic-summary {
             color: var(--text-light);
             font-size: 0.875rem;
@@ -316,6 +547,22 @@
             background: var(--primary);
             color: white;
             border-color: var(--primary);
+        }
+
+        .btn-feedback-active {
+            background: var(--bg) !important;
+            border-color: var(--primary) !important;
+            border-width: 2px !important;
+        }
+
+        .btn-feedback-up.btn-feedback-active {
+            background: rgba(16, 185, 129, 0.1) !important;
+            border-color: var(--success) !important;
+        }
+
+        .btn-feedback-down.btn-feedback-active {
+            background: rgba(239, 68, 68, 0.1) !important;
+            border-color: var(--danger) !important;
         }
 
         /* News Items */
@@ -408,6 +655,134 @@
             display: flex;
             align-items: center;
             justify-content: center;
+        }
+
+        /* Topic Modal */
+        .modal-content {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 2rem;
+            max-width: 700px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 2rem;
+            cursor: pointer;
+            color: var(--text-light);
+            padding: 0;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .modal-close:hover {
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        .modal-body {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .modal-summary {
+            padding: 1rem;
+            background: var(--bg);
+            border-radius: 8px;
+            border-left: 3px solid var(--primary);
+        }
+
+        .modal-summary strong {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text);
+        }
+
+        .modal-summary p {
+            color: var(--text-light);
+            line-height: 1.6;
+            margin: 0;
+        }
+
+        .modal-news {
+            padding: 1rem;
+            background: var(--bg);
+            border-radius: 8px;
+        }
+
+        .modal-news strong {
+            display: block;
+            margin-bottom: 0.75rem;
+            color: var(--text);
+        }
+
+        .news-links {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .news-links li {
+            padding: 0.75rem;
+            background: var(--card-bg);
+            border-radius: 6px;
+            border: 1px solid var(--border);
+        }
+
+        .news-links li a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+            display: block;
+            margin-bottom: 0.25rem;
+        }
+
+        .news-links li a:hover {
+            text-decoration: underline;
+        }
+
+        .news-link-desc {
+            display: block;
+            font-size: 0.8125rem;
+            color: var(--text-light);
+            margin-top: 0.25rem;
+        }
+
+        .modal-score {
+            padding: 1rem;
+            background: var(--bg);
+            border-radius: 8px;
+            border-top: 2px solid var(--border);
+            margin-top: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .modal-score strong {
+            color: var(--text);
+            font-size: 0.9375rem;
+        }
+
+        .modal-score span {
+            color: var(--primary);
+            font-weight: 600;
+            font-size: 1.125rem;
+        }
             border-radius: 6px;
         }
 
@@ -415,29 +790,52 @@
             background: var(--bg);
         }
 
-        /* Messages */
+        /* Messages - Toast Style */
         .message {
-            padding: 1rem;
-            border-radius: 6px;
-            margin-bottom: 1rem;
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            padding: 0.875rem 1.25rem;
+            border-radius: 8px;
             display: flex;
             align-items: center;
             gap: 0.75rem;
+            box-shadow: var(--shadow-lg);
+            z-index: 2000;
+            min-width: 250px;
+            max-width: 400px;
+            animation: slideInRight 0.3s ease-out;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
         }
 
         .message-success {
             background: #d1fae5;
             color: #065f46;
+            border-left: 4px solid #10b981;
         }
 
         .message-error {
             background: #fee2e2;
             color: #991b1b;
+            border-left: 4px solid #ef4444;
         }
 
         .message-info {
             background: #dbeafe;
             color: #1e40af;
+            border-left: 4px solid #2563eb;
         }
 
         /* Loading */
@@ -494,6 +892,64 @@
                 flex-direction: column;
                 align-items: stretch;
             }
+
+            .categories-section {
+                grid-template-columns: 1fr;
+            }
+
+            .category-card {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+
+            .category-title {
+                padding-right: 0;
+                padding-bottom: 0.5rem;
+                border-right: none;
+                border-bottom: 2px solid var(--border);
+            }
+
+            .topic-row-second {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
+
+            .topic-row-tags {
+                width: 100%;
+            }
+
+            .topic-row-actions {
+                align-self: flex-end;
+            }
+
+            .modal-content {
+                padding: 1.5rem;
+                margin: 1rem;
+            }
+        }
+
+        @media (min-width: 769px) and (max-width: 1024px) {
+            .categories-section {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (min-width: 1025px) {
+            .categories-section {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .social-feed-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+
+        @media (min-width: 769px) and (max-width: 1024px) {
+            .social-feed-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
         }
     </style>
 </head>
@@ -509,17 +965,80 @@
             const [currentUser, setCurrentUser] = useState(null);
             const [loading, setLoading] = useState(false);
             const [message, setMessage] = useState(null);
-            const [topics, setTopics] = useState([]);
-            const [selectedCategory, setSelectedCategory] = useState('');
+            const [topicsByCategory, setTopicsByCategory] = useState({});
             const [categories, setCategories] = useState([]);
             const [timeframe, setTimeframe] = useState('24h');
+            const [loadingTopics, setLoadingTopics] = useState({});
+            const [topicFeedback, setTopicFeedback] = useState({}); // Track feedback: { topicId: 'up' | 'down' }
             const [showPreferences, setShowPreferences] = useState(false);
             const [showAdminPanel, setShowAdminPanel] = useState(false);
+            const [currentRoute, setCurrentRoute] = useState('discovery'); // 'discovery', 'social', 'draft', 'writer'
+            const [drafts, setDrafts] = useState([]); // Array of topic objects
+            const [socialHandles, setSocialHandles] = useState([]);
+            const [socialFeeds, setSocialFeeds] = useState({}); // { handleId: { handle, posts, sort } }
+            const [loadingSocial, setLoadingSocial] = useState(false);
+            const [socialTimeframe, setSocialTimeframe] = useState('24h'); // Default: past 24 hours
+            const [socialSort, setSocialSort] = useState('updatedAt'); // Default: sort by updatedAt (更新時間)
+            const [socialPostDrafts, setSocialPostDrafts] = useState([]); // Array of social post objects
             const [preferences, setPreferences] = useState({
                 sources: [],
                 categories: [],
                 defaultTimeframe: '24h'
             });
+
+            // Load drafts from localStorage on mount
+            useEffect(() => {
+                const savedDrafts = localStorage.getItem('drafts');
+                if (savedDrafts) {
+                    try {
+                        setDrafts(JSON.parse(savedDrafts));
+                    } catch (e) {
+                        console.error('Failed to load drafts:', e);
+                    }
+                }
+            }, []);
+
+            // Save drafts to localStorage whenever drafts change
+            useEffect(() => {
+                if (drafts.length >= 0) {
+                    localStorage.setItem('drafts', JSON.stringify(drafts));
+                }
+            }, [drafts]);
+
+            // Load social post drafts from localStorage on mount
+            useEffect(() => {
+                const savedSocialDrafts = localStorage.getItem('socialPostDrafts');
+                if (savedSocialDrafts) {
+                    try {
+                        setSocialPostDrafts(JSON.parse(savedSocialDrafts));
+                    } catch (e) {
+                        console.error('Failed to load social post drafts:', e);
+                    }
+                }
+            }, []);
+
+            // Save social post drafts to localStorage whenever they change
+            useEffect(() => {
+                if (socialPostDrafts.length >= 0) {
+                    localStorage.setItem('socialPostDrafts', JSON.stringify(socialPostDrafts));
+                }
+            }, [socialPostDrafts]);
+
+            // Add social post to draft
+            const handleAddSocialPostToDraft = (post) => {
+                // Check if post already exists in drafts
+                const exists = socialPostDrafts.some(d => 
+                    d._id === post._id || 
+                    (d.externalId === post.externalId && d.platform === post.platform)
+                );
+                if (exists) {
+                    showMessage('此貼文已在草稿箱中', 'info');
+                    return;
+                }
+                const newDrafts = [...socialPostDrafts, post];
+                setSocialPostDrafts(newDrafts);
+                showMessage('已加入草稿箱', 'success');
+            };
 
             // Check if user is logged in on mount
             useEffect(() => {
@@ -528,12 +1047,14 @@
                 if (token && role) {
                     setIsLoggedIn(true);
                     setUserRole(role);
-                    loadUserInfo();
-                    loadPreferences();
+                    // Load user info first to get feedback, then preferences
+                    loadUserInfo().then(() => {
+                        loadPreferences();
+                    });
                 }
             }, []);
 
-            // Load user info
+            // Load user info and feedback
             const loadUserInfo = async () => {
                 try {
                     const token = localStorage.getItem('jwt_token');
@@ -545,6 +1066,25 @@
                         setCurrentUser(data.data);
                         setUserRole(data.data.role);
                         localStorage.setItem('user_role', data.data.role);
+                        
+                        // Load feedback from user preferences
+                        if (data.data.topicPreferences) {
+                            const feedbackMap = {};
+                            const likedTopics = data.data.topicPreferences.likedTopics || [];
+                            const dislikedTopics = data.data.topicPreferences.dislikedTopics || [];
+                            
+                            // Handle both ObjectId objects and strings
+                            likedTopics.forEach(topicId => {
+                                const id = topicId._id ? topicId._id.toString() : topicId.toString();
+                                feedbackMap[id] = 'up';
+                            });
+                            dislikedTopics.forEach(topicId => {
+                                const id = topicId._id ? topicId._id.toString() : topicId.toString();
+                                feedbackMap[id] = 'down';
+                            });
+                            
+                            setTopicFeedback(feedbackMap);
+                        }
                     }
                 } catch (error) {
                     console.error('Failed to load user info:', error);
@@ -565,10 +1105,9 @@
                         const cats = data.data.categories || [];
                         setCategories(cats);
                         setTimeframe(data.data.defaultTimeframe || '24h');
-                        // Auto-select first category if none selected
-                        if (cats.length > 0 && !selectedCategory) {
-                            const firstName = typeof cats[0] === 'object' ? cats[0].name : cats[0];
-                            setSelectedCategory(firstName);
+                        // Load topics for all categories
+                        if (cats.length > 0) {
+                            loadAllTopics(cats);
                         }
                     }
                 } catch (error) {
@@ -667,7 +1206,9 @@
                     const data = await res.json();
                     if (res.ok) {
                         showMessage(`已建立 ${data.data.topics.length} 個主題`, 'success');
-                        loadTopics();
+                        if (categories.length > 0) {
+                            loadAllTopics(categories);
+                        }
                     } else {
                         showMessage(data.message || '處理新聞失敗', 'error');
                     }
@@ -678,36 +1219,44 @@
                 }
             };
 
-            // Load topics
-            const loadTopics = async (category = selectedCategory) => {
-                // Get category name (handle both string and object formats)
-                let categoryName = category;
-                if (!categoryName && categories.length > 0) {
-                    categoryName = typeof categories[0] === 'object' ? categories[0].name : categories[0];
-                }
-                if (!categoryName) {
-                    setTopics([]);
-                    return;
-                }
+            // Load topics for all categories
+            const loadAllTopics = async (cats) => {
+                const token = localStorage.getItem('jwt_token');
+                const topicsMap = {};
+                const loadingMap = {};
 
-                setLoading(true);
-                try {
-                    const token = localStorage.getItem('jwt_token');
-                    const res = await fetch(`/api/topics?category=${encodeURIComponent(categoryName)}&limit=20`, {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
+                // Initialize loading states
+                cats.forEach(cat => {
+                    const catName = typeof cat === 'object' ? cat.name : cat;
+                    loadingMap[catName] = true;
+                });
+                setLoadingTopics(loadingMap);
 
-                    const data = await res.json();
-                    if (res.ok) {
-                        setTopics(data.data || []);
-                    } else {
-                        showMessage(data.message || '載入主題失敗', 'error');
+                // Load topics for each category
+                const promises = cats.map(async (cat) => {
+                    const catName = typeof cat === 'object' ? cat.name : cat;
+                    try {
+                        const res = await fetch(`/api/topics?category=${encodeURIComponent(catName)}&limit=20`, {
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+
+                        if (res.ok) {
+                            const data = await res.json();
+                            topicsMap[catName] = (data.data || []).sort((a, b) => 
+                                (b.finalScore || b.discussionScore || 0) - (a.finalScore || a.discussionScore || 0)
+                            ).slice(0, 5);
+                        }
+                    } catch (error) {
+                        console.error(`Failed to load topics for ${catName}:`, error);
+                        topicsMap[catName] = [];
+                    } finally {
+                        loadingMap[catName] = false;
                     }
-                } catch (error) {
-                    showMessage('載入錯誤: ' + error.message, 'error');
-                } finally {
-                    setLoading(false);
-                }
+                });
+
+                await Promise.all(promises);
+                setTopicsByCategory(topicsMap);
+                setLoadingTopics(loadingMap);
             };
 
             // Submit feedback
@@ -724,12 +1273,69 @@
                     });
 
                     if (res.ok) {
+                        // Update local feedback state without reloading
+                        setTopicFeedback(prev => ({
+                            ...prev,
+                            [topicId]: feedback
+                        }));
                         showMessage('已記錄回饋！', 'success');
-                        loadTopics();
                     }
                 } catch (error) {
                     showMessage('回饋錯誤: ' + error.message, 'error');
                 }
+            };
+
+            // Refresh topics (reload all topics)
+            const handleRefreshTopics = async () => {
+                if (categories.length > 0) {
+                    // Reload user info to get latest feedback
+                    await loadUserInfo();
+                    // Then reload topics
+                    loadAllTopics(categories);
+                    showMessage('已重新載入主題', 'success');
+                }
+            };
+
+            // Add topic to draft
+            const handleAddToDraft = (topic) => {
+                // Check if topic already exists in drafts
+                const exists = drafts.some(d => d._id === topic._id);
+                if (exists) {
+                    showMessage('此主題已在草稿箱中', 'info');
+                    return;
+                }
+                const newDrafts = [...drafts, topic];
+                setDrafts(newDrafts);
+                showMessage('已加入草稿箱', 'success');
+            };
+
+            // Remove topic from draft
+            const handleRemoveFromDraft = (topicId) => {
+                const newDrafts = drafts.filter(d => d._id !== topicId);
+                setDrafts(newDrafts);
+                showMessage('已從草稿箱移除', 'success');
+            };
+
+            // Remove social post from draft
+            const handleRemoveSocialPostFromDraft = (postId) => {
+                // Filter out by _id first
+                let newDrafts = socialPostDrafts.filter(d => d._id !== postId);
+                
+                // If not found by _id, try to find by externalId + platform
+                if (newDrafts.length === socialPostDrafts.length) {
+                    const postToRemove = socialPostDrafts.find(p => 
+                        p._id === postId || 
+                        (typeof postId === 'string' && p.externalId === postId)
+                    );
+                    if (postToRemove && postToRemove.externalId) {
+                        newDrafts = socialPostDrafts.filter(d => 
+                            !(d.externalId === postToRemove.externalId && d.platform === postToRemove.platform)
+                        );
+                    }
+                }
+                
+                setSocialPostDrafts(newDrafts);
+                showMessage('已從草稿箱移除', 'success');
             };
 
             // Show message
@@ -738,12 +1344,130 @@
                 setTimeout(() => setMessage(null), 5000);
             };
 
-            // Load topics when category changes
-            useEffect(() => {
-                if (isLoggedIn && selectedCategory) {
-                    loadTopics(selectedCategory);
+            // Load social handles and feeds
+            const loadSocialHandles = async () => {
+                try {
+                    const token = localStorage.getItem('jwt_token');
+                    const res = await fetch('/api/social/handles', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        setSocialHandles(data.data || []);
+                        // Load feeds for each handle
+                        if (data.data && data.data.length > 0) {
+                            loadSocialFeeds(data.data);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Failed to load social handles:', error);
                 }
-            }, [selectedCategory, isLoggedIn]);
+            };
+
+            // Load feeds for all handles
+            const loadSocialFeeds = async (handles) => {
+                setLoadingSocial(true);
+                const feedsMap = {};
+                const token = localStorage.getItem('jwt_token');
+                
+                for (const handle of handles) {
+                    try {
+                        const res = await fetch(`/api/social/feed?handleId=${handle._id}&sort=updatedAt&limit=10`, {
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        if (res.ok) {
+                            const data = await res.json();
+                            const posts = data.data.posts || [];
+                            console.log(`[${handle.handle}] Loaded posts from API:`, {
+                                count: posts.length,
+                                platform: handle.platform,
+                                postIds: posts.map(p => p.externalId || p._id).slice(0, 5)
+                            });
+                            feedsMap[handle._id] = {
+                                handle: handle,
+                                posts: posts,
+                                sort: 'updatedAt'
+                            };
+                        }
+                    } catch (error) {
+                        console.error(`Failed to load feed for ${handle.handle}:`, error);
+                        feedsMap[handle._id] = {
+                            handle: handle,
+                            posts: [],
+                            sort: 'updatedAt'
+                        };
+                    }
+                }
+                
+                setSocialFeeds(feedsMap);
+                setLoadingSocial(false);
+            };
+
+            // Refresh social feeds
+            const handleRefreshSocialFeeds = async () => {
+                setLoadingSocial(true);
+                try {
+                    const token = localStorage.getItem('jwt_token');
+                    const res = await fetch('/api/social/fetch', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                    if (res.ok) {
+                        showMessage('已重新載入社交媒體動態', 'success');
+                        // Reload feeds
+                        await loadSocialHandles();
+                    } else {
+                        showMessage('重新載入失敗', 'error');
+                    }
+                } catch (error) {
+                    showMessage('重新載入錯誤: ' + error.message, 'error');
+                } finally {
+                    setLoadingSocial(false);
+                }
+            };
+
+            // Change sort for a handle
+            const handleChangeSort = async (handleId, sort) => {
+                const handle = socialHandles.find(h => h._id === handleId);
+                if (!handle) return;
+                
+                try {
+                    const token = localStorage.getItem('jwt_token');
+                    const res = await fetch(`/api/social/feed?handleId=${handleId}&sort=${sort}&limit=10`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        setSocialFeeds(prev => ({
+                            ...prev,
+                            [handleId]: {
+                                handle: handle,
+                                posts: data.data.posts || [],
+                                sort: sort
+                            }
+                        }));
+                    }
+                } catch (error) {
+                    console.error(`Failed to change sort for ${handle.handle}:`, error);
+                }
+            };
+
+            // Load topics when categories are loaded
+            useEffect(() => {
+                if (isLoggedIn && categories.length > 0) {
+                    loadAllTopics(categories);
+                }
+            }, [isLoggedIn]);
+
+            // Load social handles when logged in
+            useEffect(() => {
+                if (isLoggedIn) {
+                    loadSocialHandles();
+                }
+            }, [isLoggedIn]);
 
             if (!isLoggedIn) {
                 return <LoginPage onLogin={handleLogin} loading={loading} message={message} />;
@@ -759,6 +1483,8 @@
                             onAdminPanel={() => setShowAdminPanel(false)}
                             userRole={userRole}
                             currentUser={currentUser}
+                            currentRoute={currentRoute}
+                            onRouteChange={setCurrentRoute}
                         />
                         {message && (
                             <div className={`message message-${message.type}`}>
@@ -773,6 +1499,64 @@
                 );
             }
 
+            // Render content based on current route
+            let mainContent;
+            if (currentRoute === 'draft') {
+                mainContent = (
+                    <DraftPage
+                        drafts={drafts}
+                        socialPostDrafts={socialPostDrafts}
+                        onRemoveFromDraft={handleRemoveFromDraft}
+                        onRemoveSocialPostFromDraft={handleRemoveSocialPostFromDraft}
+                        topicFeedback={topicFeedback}
+                        onFeedback={handleFeedback}
+                    />
+                );
+            } else if (currentRoute === 'writer') {
+                mainContent = (
+                    <WriterCentralPage />
+                );
+            } else if (currentRoute === 'social') {
+                mainContent = (
+                    <SocialTopicDiscovery
+                        handles={socialHandles}
+                        feeds={socialFeeds}
+                        loading={loadingSocial}
+                        onRefresh={handleRefreshSocialFeeds}
+                        timeframe={socialTimeframe}
+                        onTimeframeChange={setSocialTimeframe}
+                        sort={socialSort}
+                        onSortChange={setSocialSort}
+                        onAddToDraft={handleAddSocialPostToDraft}
+                        drafts={socialPostDrafts}
+                    />
+                );
+            } else {
+                // Default: Topic Discovery
+                mainContent = (
+                    <>
+                        <ControlPanel
+                            timeframe={timeframe}
+                            onTimeframeChange={setTimeframe}
+                            onFetchNews={handleFetchNews}
+                            onProcessNews={handleProcessNews}
+                            onRefreshTopics={handleRefreshTopics}
+                            loading={loading}
+                        />
+
+                        <CategoriesSection
+                            categories={categories}
+                            topicsByCategory={topicsByCategory}
+                            loadingTopics={loadingTopics}
+                            topicFeedback={topicFeedback}
+                            onFeedback={handleFeedback}
+                            onAddToDraft={handleAddToDraft}
+                            drafts={drafts}
+                        />
+                    </>
+                );
+            }
+
             // Show regular dashboard for all users
             return (
                 <div className="app">
@@ -782,6 +1566,8 @@
                         onAdminPanel={() => setShowAdminPanel(true)}
                         userRole={userRole}
                         currentUser={currentUser}
+                        currentRoute={currentRoute}
+                        onRouteChange={setCurrentRoute}
                     />
                     
                     {message && (
@@ -791,24 +1577,7 @@
                     )}
 
                     <div className="main-content">
-                        <ControlPanel
-                            categories={categories}
-                            selectedCategory={selectedCategory}
-                            onCategoryChange={setSelectedCategory}
-                            timeframe={timeframe}
-                            onTimeframeChange={setTimeframe}
-                            onFetchNews={handleFetchNews}
-                            onProcessNews={handleProcessNews}
-                            loading={loading}
-                        />
-
-                        <TopicsSection
-                            topics={topics}
-                            loading={loading}
-                            selectedCategory={selectedCategory}
-                            categories={categories}
-                            onFeedback={handleFeedback}
-                        />
+                        {mainContent}
                     </div>
 
                     {showPreferences && (
@@ -832,9 +1601,9 @@
         function LoginPage({ onLogin, loading, message }) {
             return (
                 <div className="login-container">
-                    <h2>LiteNews AI</h2>
+                    <h2>News AI</h2>
                     <p style={{ textAlign: 'center', color: 'var(--text-light)', marginBottom: '1.5rem' }}>
-                        AI 驅動的新聞聚合
+                        AI 驅動的新聞聚合平台
                     </p>
                     {message && (
                         <div className={`message message-${message.type}`}>
@@ -874,10 +1643,38 @@
             );
         }
 
-        function Header({ onLogout, onPreferences, onAdminPanel, userRole, currentUser }) {
+        function Header({ onLogout, onPreferences, onAdminPanel, userRole, currentUser, currentRoute, onRouteChange }) {
             return (
                 <div className="header">
-                    <h1>📰 LiteNews AI</h1>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
+                        <h1>📰 LiteNews AI</h1>
+                        <nav style={{ display: 'flex', gap: '1rem' }}>
+                            <button
+                                className={`btn ${currentRoute === 'discovery' ? 'btn-primary' : 'btn-outline'} btn-sm`}
+                                onClick={() => onRouteChange('discovery')}
+                            >
+                                主題發現
+                            </button>
+                            <button
+                                className={`btn ${currentRoute === 'social' ? 'btn-primary' : 'btn-outline'} btn-sm`}
+                                onClick={() => onRouteChange('social')}
+                            >
+                                社交主題
+                            </button>
+                            <button
+                                className={`btn ${currentRoute === 'draft' ? 'btn-primary' : 'btn-outline'} btn-sm`}
+                                onClick={() => onRouteChange('draft')}
+                            >
+                                草稿箱
+                            </button>
+                            <button
+                                className={`btn ${currentRoute === 'writer' ? 'btn-primary' : 'btn-outline'} btn-sm`}
+                                onClick={() => onRouteChange('writer')}
+                            >
+                                寫作中心
+                            </button>
+                        </nav>
+                    </div>
                     <div className="header-actions">
                         {currentUser && (
                             <span style={{ marginRight: '1rem', color: 'var(--text-light)' }}>
@@ -900,26 +1697,10 @@
             );
         }
 
-        function ControlPanel({ categories, selectedCategory, onCategoryChange, timeframe, onTimeframeChange, onFetchNews, onProcessNews, loading }) {
-            // Helper to get category name and display name
-            const getCatName = (cat) => typeof cat === 'object' ? cat.name : cat;
-            const getCatDisplay = (cat) => typeof cat === 'object' ? cat.displayName : cat;
-            
+        function ControlPanel({ timeframe, onTimeframeChange, onFetchNews, onProcessNews, onRefreshTopics, loading }) {
             return (
                 <div className="control-panel">
                     <div className="control-group">
-                        <label>分類：</label>
-                        <select
-                            className="select"
-                            value={selectedCategory}
-                            onChange={(e) => onCategoryChange(e.target.value)}
-                            disabled={loading || categories.length === 0}
-                        >
-                            <option value="">選擇分類...</option>
-                            {categories.map(cat => (
-                                <option key={getCatName(cat)} value={getCatName(cat)}>{getCatDisplay(cat)}</option>
-                            ))}
-                        </select>
                         <label>時間範圍：</label>
                         <select
                             className="select"
@@ -947,12 +1728,19 @@
                         >
                             🤖 處理主題
                         </button>
+                        <button
+                            className="btn btn-outline"
+                            onClick={onRefreshTopics}
+                            disabled={loading}
+                        >
+                            🔄 重新整理
+                        </button>
                     </div>
                 </div>
             );
         }
 
-        function TopicsSection({ topics, loading, selectedCategory, categories, onFeedback }) {
+        function CategoriesSection({ categories, topicsByCategory, loadingTopics, topicFeedback, onFeedback, onAddToDraft, drafts }) {
             // Helper to get category display name
             const getCatDisplay = (catName) => {
                 if (!categories) return catName;
@@ -962,45 +1750,958 @@
                 return found ? (typeof found === 'object' ? found.displayName : found) : catName;
             };
 
-            if (loading) {
-                return (
-                    <div className="loading">
-                        <div className="spinner"></div>
-                        <p>載入主題中...</p>
-                    </div>
-                );
-            }
-
-            if (!selectedCategory) {
-                return (
-                    <div className="empty-state">
-                        <div className="empty-state-icon">📋</div>
-                        <h3>請選擇分類以查看主題</h3>
-                        <p>從上方下拉選單選擇一個分類</p>
-                    </div>
-                );
-            }
-
-            if (topics.length === 0) {
+            if (!categories || categories.length === 0) {
                 return (
                     <div className="empty-state">
                         <div className="empty-state-icon">📰</div>
-                        <h3>找不到主題</h3>
-                        <p>請先獲取並處理新聞</p>
+                        <h3>沒有分類</h3>
+                        <p>請先在偏好設定中設定分類</p>
                     </div>
                 );
             }
 
             return (
-                <div className="topics-section">
-                    <div className="section-header">
-                        <h2 className="section-title">主題：{getCatDisplay(selectedCategory)}</h2>
-                        <span style={{ color: 'var(--text-light)' }}>{topics.length} 個主題</span>
+                <div className="categories-section">
+                    {categories.map(cat => {
+                        const catName = typeof cat === 'object' ? cat.name : cat;
+                        const topics = topicsByCategory[catName] || [];
+                        const isLoading = loadingTopics[catName];
+                        return (
+                            <CategoryCard
+                                key={catName}
+                                categoryName={catName}
+                                categoryDisplay={getCatDisplay(catName)}
+                                topics={topics}
+                                loading={isLoading}
+                                topicFeedback={topicFeedback}
+                                onFeedback={onFeedback}
+                                onAddToDraft={onAddToDraft}
+                                drafts={drafts}
+                            />
+                        );
+                    })}
+                </div>
+            );
+        }
+
+        function SocialTopicDiscovery({ handles, feeds, loading, onRefresh, timeframe, onTimeframeChange, sort, onSortChange, onAddToDraft, drafts }) {
+            if (!handles || handles.length === 0) {
+                return (
+                    <div className="empty-state">
+                        <div className="empty-state-icon">📱</div>
+                        <h3>沒有社交媒體帳號</h3>
+                        <p>請先在偏好設定中設定社交媒體帳號</p>
                     </div>
-                    <div className="topics-grid">
-                        {topics.map(topic => (
-                            <TopicCard key={topic._id} topic={topic} categories={categories} onFeedback={onFeedback} />
+                );
+            }
+
+            return (
+                <>
+                    {/* ControlPanel with timeframe filter, sort options, and refresh button */}
+                    <div className="control-panel">
+                        <div className="control-group">
+                            <label>時間範圍：</label>
+                            <select
+                                className="select"
+                                value={timeframe}
+                                onChange={(e) => onTimeframeChange(e.target.value)}
+                                disabled={loading}
+                            >
+                                <option value="24h">過去 24 小時</option>
+                                <option value="2d">過去 2 天</option>
+                                <option value="5d">過去 5 天</option>
+                                <option value="7d">過去 7 天</option>
+                            </select>
+                        </div>
+                        <div className="control-group">
+                            <label>排序方式：</label>
+                            <button
+                                className={`btn btn-sm ${sort === 'updatedAt' ? 'btn-primary' : 'btn-outline'}`}
+                                onClick={() => onSortChange('updatedAt')}
+                                disabled={loading}
+                            >
+                                更新時間
+                            </button>
+                            <button
+                                className={`btn btn-sm ${sort === 'recency' ? 'btn-primary' : 'btn-outline'}`}
+                                onClick={() => onSortChange('recency')}
+                                disabled={loading}
+                            >
+                                首發時間
+                            </button>
+                            <button
+                                className={`btn btn-sm ${sort === 'popularity' ? 'btn-primary' : 'btn-outline'}`}
+                                onClick={() => onSortChange('popularity')}
+                                disabled={loading}
+                            >
+                                熱門
+                            </button>
+                        </div>
+                        <div className="control-group">
+                            <button
+                                className="btn btn-outline"
+                                onClick={onRefresh}
+                                disabled={loading}
+                            >
+                                {loading ? '載入中...' : '刷新貼文'}
+                            </button>
+                        </div>
+                    </div>
+                    <div className="social-feed-grid">
+                        {handles.map(handle => (
+                            <SocialMediaHandleCard
+                                key={handle._id}
+                                handle={handle}
+                                feed={feeds[handle._id]}
+                                timeframe={timeframe}
+                                sort={sort}
+                                onAddToDraft={onAddToDraft}
+                                drafts={drafts}
+                            />
                         ))}
+                    </div>
+                </>
+            );
+        }
+
+        function CategoryCard({ categoryName, categoryDisplay, topics, loading, topicFeedback, onFeedback, onAddToDraft, drafts }) {
+            return (
+                <div className="category-card">
+                    <h2 className="category-title">{categoryDisplay}</h2>
+                    <div className="category-content">
+                        {loading ? (
+                            <div className="loading" style={{ padding: '1rem' }}>
+                                <div className="spinner"></div>
+                                <p style={{ fontSize: '0.75rem' }}>載入主題中...</p>
+                            </div>
+                        ) : topics.length === 0 ? (
+                            <div className="empty-topics">暫無主題</div>
+                        ) : (
+                            <div className="topics-list">
+                                {topics.map(topic => (
+                                    <TopicRow
+                                        key={topic._id}
+                                        topic={topic}
+                                        feedback={topicFeedback[topic._id?.toString() || topic._id]}
+                                        onFeedback={onFeedback}
+                                        onAddToDraft={onAddToDraft}
+                                        drafts={drafts}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        function TopicRow({ topic, feedback, onFeedback, onAddToDraft, drafts }) {
+            const [showModal, setShowModal] = useState(false);
+
+            const handleAddToDraft = (e) => {
+                e.stopPropagation();
+                if (onAddToDraft) {
+                    onAddToDraft(topic);
+                }
+            };
+
+            // Check if topic is already in drafts
+            const isInDraft = drafts && drafts.some(d => d._id === topic._id);
+
+            return (
+                <>
+                    <div className="topic-row" onClick={() => setShowModal(true)}>
+                        <div className="topic-row-first">
+                            <div className="topic-row-name">{topic.title}</div>
+                        </div>
+                        <div className="topic-row-second">
+                            <div className="topic-row-tags">
+                                {topic.tags && topic.tags.slice(0, 5).map((tag, idx) => (
+                                    <span key={idx} className="topic-tag-small">{tag}</span>
+                                ))}
+                            </div>
+                            <div className="topic-row-actions" onClick={(e) => e.stopPropagation()}>
+                                <button
+                                    className={`btn-icon btn-icon-small ${feedback === 'up' ? 'btn-feedback-active btn-feedback-up' : ''}`}
+                                    onClick={() => onFeedback(topic._id, 'up')}
+                                    title="喜歡"
+                                >
+                                    👍
+                                </button>
+                                <button
+                                    className={`btn-icon btn-icon-small ${feedback === 'down' ? 'btn-feedback-active btn-feedback-down' : ''}`}
+                                    onClick={() => onFeedback(topic._id, 'down')}
+                                    title="不喜歡"
+                                >
+                                    👎
+                                </button>
+                                <button
+                                    className={`btn btn-sm ${isInDraft ? 'btn-primary' : 'btn-outline'}`}
+                                    onClick={handleAddToDraft}
+                                    title={isInDraft ? '已在草稿箱' : '加進草稿'}
+                                    style={{ fontSize: '0.7rem', padding: '0.2rem 0.4rem' }}
+                                >
+                                    {isInDraft ? '已在草稿' : '加進草稿'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {showModal && (
+                        <TopicModal
+                            topic={topic}
+                            onClose={() => setShowModal(false)}
+                        />
+                    )}
+                </>
+            );
+        }
+
+        function TopicModal({ topic, onClose }) {
+            const [newsItems, setNewsItems] = useState([]);
+            const [loadingItems, setLoadingItems] = useState(false);
+
+            useEffect(() => {
+                const loadNewsItems = async () => {
+                    setLoadingItems(true);
+                    try {
+                        const token = localStorage.getItem('jwt_token');
+                        const res = await fetch('/api/news/items?category=' + encodeURIComponent(topic.category), {
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        if (res.ok) {
+                            const data = await res.json();
+                            const items = data.data.filter(item => 
+                                item.topicId === topic._id || topic.newsItems.includes(item._id)
+                            );
+                            setNewsItems(items);
+                        }
+                    } catch (error) {
+                        console.error('Failed to load news items:', error);
+                    } finally {
+                        setLoadingItems(false);
+                    }
+                };
+
+                loadNewsItems();
+            }, [topic]);
+
+            return (
+                <div className="modal-overlay" onClick={onClose}>
+                    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h3>{topic.title}</h3>
+                            <button className="modal-close" onClick={onClose}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            {topic.summary && (
+                                <div className="modal-summary">
+                                    <strong>摘要：</strong>
+                                    <p>{topic.summary}</p>
+                                </div>
+                            )}
+                            <div className="modal-news">
+                                <strong>相關新聞：</strong>
+                                {loadingItems ? (
+                                    <div className="loading" style={{ padding: '1rem' }}>
+                                        <div className="spinner"></div>
+                                    </div>
+                                ) : newsItems.length === 0 ? (
+                                    <p style={{ color: 'var(--text-light)' }}>暫無相關新聞</p>
+                                ) : (
+                                    <ul className="news-links">
+                                        {newsItems.map(item => (
+                                            <li key={item._id}>
+                                                <a href={item.url} target="_blank" rel="noopener noreferrer">
+                                                    {item.title}
+                                                </a>
+                                                {item.description && (
+                                                    <span className="news-link-desc">{item.description.substring(0, 100)}...</span>
+                                                )}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                            <div className="modal-score">
+                                <strong>分數：</strong>
+                                <span>{Math.round(topic.finalScore || topic.discussionScore || 0)}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function SocialSection({ handles, feeds, loading, onRefresh, onChangeSort }) {
+            if (!handles || handles.length === 0) {
+                return null;
+            }
+
+            return (
+                <div className="social-section" style={{ marginTop: '2rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                        <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0' }}>
+                            社交媒體動態
+                        </h2>
+                        <button
+                            className="btn btn-outline btn-sm"
+                            onClick={onRefresh}
+                            disabled={loading}
+                        >
+                            {loading ? '載入中...' : '重新載入'}
+                        </button>
+                    </div>
+                    <div className="social-handles-grid">
+                        {handles.map(handle => (
+                            <SocialMediaHandleCard
+                                key={handle._id}
+                                handle={handle}
+                                feed={feeds[handle._id]}
+                                onChangeSort={onChangeSort}
+                            />
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        function SocialMediaHandleCard({ handle, feed, timeframe = '24h', sort = 'updatedAt', onAddToDraft, drafts }) {
+            const allPosts = feed?.posts || [];
+            const platformBadge = handle.platform === 'mastodon' ? '🐘' : 
+                                   handle.platform === 'x' ? '𝕏' : 
+                                   handle.platform === 'instagram' ? '📷' : '▶️';
+
+            // Parse timeframe and calculate cutoff date
+            const getTimeframeCutoff = (timeframe) => {
+                const now = new Date();
+                const cutoff = new Date(now);
+                
+                switch (timeframe) {
+                    case '24h':
+                        cutoff.setHours(now.getHours() - 24);
+                        break;
+                    case '2d':
+                        cutoff.setDate(now.getDate() - 2);
+                        break;
+                    case '5d':
+                        cutoff.setDate(now.getDate() - 5);
+                        break;
+                    case '7d':
+                        cutoff.setDate(now.getDate() - 7);
+                        break;
+                    default:
+                        cutoff.setHours(now.getHours() - 24);
+                }
+                
+                return cutoff;
+            };
+
+            // Filter posts by timeframe - include if either updatedAt or publishedAt/createdAt falls within timeframe
+            const cutoffDate = getTimeframeCutoff(timeframe || '24h');
+            console.log(`[${handle.handle}] Filtering posts:`, {
+                totalPosts: allPosts.length,
+                timeframe: timeframe,
+                cutoffDate: cutoffDate.toISOString(),
+                platform: handle.platform
+            });
+            
+            const filteredPosts = allPosts.filter(post => {
+                // Check updatedAt
+                let updatedAtDate = null;
+                if (post.updatedAt) {
+                    updatedAtDate = new Date(post.updatedAt);
+                    if (isNaN(updatedAtDate.getTime())) {
+                        updatedAtDate = null;
+                    }
+                }
+                
+                // Check publishedAt or createdAt
+                let publishedAtDate = null;
+                if (post.publishedAt) {
+                    publishedAtDate = new Date(post.publishedAt);
+                    if (isNaN(publishedAtDate.getTime())) {
+                        publishedAtDate = null;
+                    }
+                } else if (post.createdAt) {
+                    publishedAtDate = new Date(post.createdAt);
+                    if (isNaN(publishedAtDate.getTime())) {
+                        publishedAtDate = null;
+                    }
+                }
+                
+                // If neither date exists, exclude the post
+                if (!updatedAtDate && !publishedAtDate) {
+                    console.warn(`[${handle.handle}] Post missing both updatedAt and publishedAt/createdAt:`, post.externalId, post.platform);
+                    return false;
+                }
+                
+                // Include post if EITHER updatedAt OR publishedAt/createdAt is within timeframe
+                const updatedAtWithinTimeframe = updatedAtDate && updatedAtDate >= cutoffDate;
+                const publishedAtWithinTimeframe = publishedAtDate && publishedAtDate >= cutoffDate;
+                const isWithinTimeframe = updatedAtWithinTimeframe || publishedAtWithinTimeframe;
+                
+                if (!isWithinTimeframe) {
+                    console.debug(`[${handle.handle}] Post filtered out (both dates older than ${timeframe}):`, {
+                        updatedAt: updatedAtDate ? updatedAtDate.toISOString() : 'N/A',
+                        publishedAt: publishedAtDate ? publishedAtDate.toISOString() : 'N/A',
+                        cutoffDate: cutoffDate.toISOString(),
+                        externalId: post.externalId,
+                        platform: post.platform
+                    });
+                }
+                
+                return isWithinTimeframe;
+            });
+
+            console.log(`[${handle.handle}] After filtering:`, {
+                filteredCount: filteredPosts.length,
+                platform: handle.platform
+            });
+
+            // Apply sort and limit
+            const sortedPosts = [...filteredPosts].sort((a, b) => {
+                if (sort === 'updatedAt') {
+                    // Sort by updatedAt (newest first)
+                    const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+                    const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+                    return dateB - dateA; // Descending order (newest first)
+                } else if (sort === 'recency') {
+                    // Sort by publishedAt (首發時間) - newest first
+                    const dateA = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
+                    const dateB = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
+                    return dateB - dateA; // Descending order (newest first)
+                } else {
+                    // Sort by engagement score (popularity)
+                    const scoreA = a.engagement?.score ?? 0;
+                    const scoreB = b.engagement?.score ?? 0;
+                    // If scores are equal, use updatedAt as tiebreaker
+                    if (scoreA === scoreB) {
+                        const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+                        const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+                        return dateB - dateA; // Newer first as tiebreaker
+                    }
+                    return scoreB - scoreA;
+                }
+            });
+            
+            const posts = sortedPosts.slice(0, 5); // Limit to 5 posts
+            
+            console.log(`[${handle.handle}] Final posts to display:`, {
+                count: posts.length,
+                sort: sort,
+                platform: handle.platform,
+                postIds: posts.map(p => p.externalId),
+                scores: posts.map(p => ({ id: p.externalId, score: p.engagement?.score ?? 0 }))
+            });
+
+            return (
+                <div className="social-feed-card">
+                    <div className="social-feed-header">
+                        <div className="social-feed-handle">
+                            <span style={{ fontSize: '1.2rem' }}>{platformBadge}</span>
+                            <div className="social-feed-handle-info">
+                                <div className="social-feed-handle-name">
+                                    {handle.displayName || handle.handle}
+                                </div>
+                                <div className="social-feed-handle-username">
+                                    @{handle.handle}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="social-posts-list">
+                        {posts.length === 0 ? (
+                            <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-light)', fontSize: '0.75rem' }}>
+                                暫無動態
+                            </div>
+                        ) : (
+                            posts.map(post => (
+                                <SocialPostRow 
+                                    key={post._id || post.externalId} 
+                                    post={post}
+                                    onAddToDraft={onAddToDraft}
+                                    drafts={drafts}
+                                />
+                            ))
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        function SocialPostRow({ post, onAddToDraft, drafts }) {
+            const [showModal, setShowModal] = useState(false);
+            
+            // Check if post is already in drafts
+            const isInDraft = drafts && drafts.some(d => 
+                d._id === post._id || 
+                (d.externalId === post.externalId && d.platform === post.platform)
+            );
+
+            const handleAddToDraft = (e) => {
+                e.stopPropagation();
+                if (onAddToDraft) {
+                    onAddToDraft(post);
+                }
+            };
+            
+            const formatDate = (date) => {
+                const d = new Date(date);
+                const now = new Date();
+                const diffMs = now - d;
+                const diffMins = Math.floor(diffMs / 60000);
+                const diffHours = Math.floor(diffMs / 3600000);
+                const diffDays = Math.floor(diffMs / 86400000);
+
+                if (diffMins < 1) return '剛剛';
+                if (diffMins < 60) return `${diffMins} 分鐘前`;
+                if (diffHours < 24) return `${diffHours} 小時前`;
+                if (diffDays < 7) return `${diffDays} 天前`;
+                return d.toLocaleDateString('zh-TW');
+            };
+
+            // Format number for display
+            const formatNumber = (num) => {
+                if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+                if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+                return num.toString();
+            };
+
+            // Prioritize title over content
+            const displayText = post.title && post.title.trim() 
+                ? (post.title.length > 150 ? post.title.substring(0, 150) + '...' : post.title)
+                : (post.content ? (post.content.length > 150 ? post.content.substring(0, 150) + '...' : post.content) : '');
+
+            // Determine engagement metrics based on platform
+            const isYouTube = post.platform === 'youtube';
+            const engagement = post.engagement || {};
+
+            return (
+                <>
+                    <div 
+                        className="social-post-row" 
+                        onClick={() => setShowModal(true)}
+                        style={{ cursor: 'pointer' }}
+                    >
+                        <div className="social-post-content">
+                            {displayText && (
+                                <div style={{ fontSize: '0.875rem', color: 'var(--text)', marginBottom: '0.5rem', lineHeight: '1.5' }}>
+                                    {displayText}
+                                </div>
+                            )}
+                            <div className="social-post-meta">
+                                {/* Display Date - Use updatedAt, fall back to publishedAt - Always shown */}
+                                <span style={{ fontSize: '0.7rem', color: 'var(--text-light)' }}>
+                                    {formatDate(post.updatedAt || post.publishedAt)}
+                                </span>
+                                
+                                {/* Engagement Metrics - Always shown, consistent layout */}
+                                <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.7rem', color: 'var(--text-light)' }}>
+                                    {isYouTube ? (
+                                        <>
+                                            <span>👁️ {formatNumber(engagement.views || 0)}</span>
+                                            <span>💬 {formatNumber(engagement.comments || 0)}</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span>👍 {formatNumber(engagement.likes || 0)}</span>
+                                            <span>🔄 {formatNumber(engagement.reposts || 0)}</span>
+                                            <span>💬 {formatNumber(engagement.replies || 0)}</span>
+                                        </>
+                                    )}
+                                </div>
+                                
+                                {/* 加進草稿 Button - Always shown */}
+                                <button
+                                    className={`btn btn-sm ${isInDraft ? 'btn-primary' : 'btn-outline'}`}
+                                    onClick={handleAddToDraft}
+                                    disabled={isInDraft}
+                                    style={{
+                                        fontSize: '0.7rem',
+                                        padding: '0.3rem 0.6rem',
+                                        whiteSpace: 'nowrap'
+                                    }}
+                                    title={isInDraft ? '已在草稿箱' : '加進草稿'}
+                                >
+                                    {isInDraft ? '已在草稿' : '加進草稿'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {showModal && (
+                        <SocialPostModal post={post} onClose={() => setShowModal(false)} />
+                    )}
+                </>
+            );
+        }
+
+        function SocialPostModal({ post, onClose }) {
+            const [quotedTweetUrl, setQuotedTweetUrl] = useState(null);
+            const [tweetPreview, setTweetPreview] = useState(null);
+            const [loadingPreview, setLoadingPreview] = useState(false);
+
+            const formatDate = (date) => {
+                if (!date) return '未知';
+                const d = new Date(date);
+                return d.toLocaleString('zh-TW', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            };
+
+            const formatNumber = (num) => {
+                if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+                if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+                return num.toString();
+            };
+
+            // Extract YouTube video ID from URL
+            const getYouTubeVideoId = (url) => {
+                if (!url) return null;
+                const match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
+                return match ? match[1] : null;
+            };
+
+            // Extract X/Twitter tweet URLs from content
+            const extractTweetUrls = (text) => {
+                if (!text) return [];
+                const tweetUrlRegex = /https?:\/\/(?:twitter\.com|x\.com)\/(\w+)\/status\/(\d+)/gi;
+                const matches = [];
+                let match;
+                while ((match = tweetUrlRegex.exec(text)) !== null) {
+                    matches.push({
+                        fullUrl: match[0],
+                        username: match[1],
+                        tweetId: match[2]
+                    });
+                }
+                return matches;
+            };
+
+            // Fetch tweet preview using oEmbed (if available) or show link preview
+            useEffect(() => {
+                if (post.platform === 'x' && post.content) {
+                    const tweetUrls = extractTweetUrls(post.content);
+                    if (tweetUrls.length > 0) {
+                        const firstTweet = tweetUrls[0];
+                        setQuotedTweetUrl(firstTweet.fullUrl);
+                        // Try to fetch oEmbed preview
+                        setLoadingPreview(true);
+                        fetch(`https://publish.twitter.com/oembed?url=${encodeURIComponent(firstTweet.fullUrl)}`)
+                            .then(res => res.json())
+                            .then(data => {
+                                if (data.html) {
+                                    setTweetPreview(data);
+                                }
+                                setLoadingPreview(false);
+                            })
+                            .catch(err => {
+                                console.log('Could not fetch tweet preview:', err);
+                                setLoadingPreview(false);
+                            });
+                    }
+                }
+            }, [post]);
+
+            const isYouTube = post.platform === 'youtube';
+            const engagement = post.engagement || {};
+            const metadata = post.metadata || {};
+            const mediaUrls = metadata.mediaUrls || [];
+            const youtubeVideoId = isYouTube ? getYouTubeVideoId(post.url) : null;
+
+            return (
+                <div className="modal-overlay" onClick={onClose}>
+                    <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '800px' }}>
+                        <div className="modal-header">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                {post.author?.avatarUrl && (
+                                    <img 
+                                        src={post.author.avatarUrl} 
+                                        alt={post.author.displayName || post.author.handle}
+                                        style={{
+                                            width: '40px',
+                                            height: '40px',
+                                            borderRadius: '50%',
+                                            objectFit: 'cover'
+                                        }}
+                                    />
+                                )}
+                                <div>
+                                    <div style={{ fontWeight: 600, fontSize: '1rem' }}>
+                                        {post.author?.displayName || post.author?.handle || post.handle}
+                                    </div>
+                                    {post.author?.handle && (
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
+                                            @{post.author.handle}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            <button className="modal-close" onClick={onClose}>×</button>
+                        </div>
+                        
+                        <div className="modal-body">
+                            {/* Full Content */}
+                            {post.title && (
+                                <div style={{ marginBottom: '1rem' }}>
+                                    <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.5rem', lineHeight: '1.4' }}>
+                                        {post.title}
+                                    </h3>
+                                </div>
+                            )}
+                            
+                            {post.content && (
+                                <div style={{ 
+                                    marginBottom: '1.5rem', 
+                                    fontSize: '1rem', 
+                                    lineHeight: '1.6',
+                                    whiteSpace: 'pre-wrap',
+                                    wordBreak: 'break-word'
+                                }}>
+                                    {post.content}
+                                </div>
+                            )}
+
+                            {/* YouTube Embedded Video */}
+                            {isYouTube && youtubeVideoId && (
+                                <div style={{ marginBottom: '1.5rem' }}>
+                                    <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', borderRadius: '8px' }}>
+                                        <iframe
+                                            src={`https://www.youtube.com/embed/${youtubeVideoId}`}
+                                            style={{
+                                                position: 'absolute',
+                                                top: 0,
+                                                left: 0,
+                                                width: '100%',
+                                                height: '100%',
+                                                border: 'none'
+                                            }}
+                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                            allowFullScreen
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Quoted/Reposted Tweet Preview (X/Twitter) */}
+                            {quotedTweetUrl && (() => {
+                                const urlMatch = quotedTweetUrl.match(/(?:twitter\.com|x\.com)\/(\w+)\/status\/(\d+)/);
+                                const quotedUsername = urlMatch ? urlMatch[1] : null;
+                                
+                                return (
+                                    <div style={{ 
+                                        marginBottom: '1.5rem',
+                                        border: '1px solid var(--border)',
+                                        borderRadius: '12px',
+                                        padding: '1rem',
+                                        background: 'var(--bg)'
+                                    }}>
+                                        <div style={{ 
+                                            display: 'flex', 
+                                            alignItems: 'center', 
+                                            gap: '0.5rem',
+                                            marginBottom: '0.75rem',
+                                            fontSize: '0.875rem',
+                                            color: 'var(--text-light)'
+                                        }}>
+                                            <span>🔄</span>
+                                            <span>轉發的貼文</span>
+                                        </div>
+                                        {loadingPreview ? (
+                                            <div style={{ textAlign: 'center', padding: '1rem' }}>
+                                                <div className="spinner" style={{ margin: '0 auto' }}></div>
+                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: '0.5rem' }}>載入預覽中...</p>
+                                            </div>
+                                        ) : tweetPreview && tweetPreview.html ? (
+                                            <div 
+                                                dangerouslySetInnerHTML={{ __html: tweetPreview.html }}
+                                                style={{ marginBottom: '0.5rem' }}
+                                            />
+                                        ) : (
+                                            <div style={{ 
+                                                padding: '1rem',
+                                                background: 'var(--card-bg)',
+                                                borderRadius: '8px',
+                                                border: '1px solid var(--border)',
+                                                transition: 'all 0.2s'
+                                            }}>
+                                                <div style={{ 
+                                                    display: 'flex', 
+                                                    alignItems: 'center', 
+                                                    gap: '0.75rem',
+                                                    marginBottom: '0.75rem'
+                                                }}>
+                                                    <div style={{
+                                                        width: '40px',
+                                                        height: '40px',
+                                                        borderRadius: '50%',
+                                                        background: 'var(--primary)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        color: 'white',
+                                                        fontSize: '1.25rem',
+                                                        fontWeight: 600
+                                                    }}>
+                                                        𝕏
+                                                    </div>
+                                                    <div>
+                                                        {quotedUsername && (
+                                                            <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>
+                                                                @{quotedUsername}
+                                                            </div>
+                                                        )}
+                                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
+                                                            在 X (Twitter) 上的貼文
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <a
+                                                    href={quotedTweetUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="btn btn-outline btn-sm"
+                                                    style={{ 
+                                                        textDecoration: 'none',
+                                                        width: '100%',
+                                                        textAlign: 'center'
+                                                    }}
+                                                >
+                                                    查看轉發的貼文 →
+                                                </a>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })()}
+
+                            {/* Media Gallery */}
+                            {mediaUrls.length > 0 && !isYouTube && (
+                                <div style={{ marginBottom: '1.5rem' }}>
+                                    <div style={{ 
+                                        display: 'grid', 
+                                        gridTemplateColumns: mediaUrls.length === 1 ? '1fr' : 'repeat(2, 1fr)',
+                                        gap: '0.5rem'
+                                    }}>
+                                        {mediaUrls.map((url, idx) => (
+                                            <img 
+                                                key={idx}
+                                                src={url} 
+                                                alt={`Media ${idx + 1}`}
+                                                style={{
+                                                    width: '100%',
+                                                    height: 'auto',
+                                                    borderRadius: '8px',
+                                                    objectFit: 'cover',
+                                                    maxHeight: '400px'
+                                                }}
+                                                onError={(e) => {
+                                                    e.target.style.display = 'none';
+                                                }}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Engagement Metrics */}
+                            <div style={{ 
+                                display: 'flex', 
+                                gap: '1.5rem', 
+                                padding: '1rem',
+                                background: 'var(--bg)',
+                                borderRadius: '8px',
+                                marginBottom: '1.5rem',
+                                flexWrap: 'wrap'
+                            }}>
+                                {isYouTube ? (
+                                    <>
+                                        <div>
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginBottom: '0.25rem' }}>觀看次數</div>
+                                            <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>👁️ {formatNumber(engagement.views || 0)}</div>
+                                        </div>
+                                        <div>
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginBottom: '0.25rem' }}>留言</div>
+                                            <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>💬 {formatNumber(engagement.comments || 0)}</div>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div>
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginBottom: '0.25rem' }}>讚</div>
+                                            <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>👍 {formatNumber(engagement.likes || 0)}</div>
+                                        </div>
+                                        <div>
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginBottom: '0.25rem' }}>轉發</div>
+                                            <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>🔄 {formatNumber(engagement.reposts || 0)}</div>
+                                        </div>
+                                        <div>
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginBottom: '0.25rem' }}>回覆</div>
+                                            <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>💬 {formatNumber(engagement.replies || 0)}</div>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+
+                            {/* Dates */}
+                            <div style={{ 
+                                padding: '1rem',
+                                background: 'var(--bg)',
+                                borderRadius: '8px',
+                                marginBottom: '1.5rem',
+                                fontSize: '0.875rem',
+                                color: 'var(--text-light)'
+                            }}>
+                                {post.publishedAt && (
+                                    <div style={{ marginBottom: '0.5rem' }}>
+                                        <strong>首發時間：</strong>{formatDate(post.publishedAt)}
+                                    </div>
+                                )}
+                                {post.updatedAt && post.updatedAt !== post.publishedAt && (
+                                    <div>
+                                        <strong>更新時間：</strong>{formatDate(post.updatedAt)}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Tags */}
+                            {metadata.tags && metadata.tags.length > 0 && (
+                                <div style={{ marginBottom: '1.5rem' }}>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                        {metadata.tags.map((tag, idx) => (
+                                            <span 
+                                                key={idx}
+                                                style={{
+                                                    padding: '0.25rem 0.75rem',
+                                                    background: 'var(--bg)',
+                                                    borderRadius: '12px',
+                                                    fontSize: '0.75rem',
+                                                    color: 'var(--primary)'
+                                                }}
+                                            >
+                                                #{tag}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* External Link */}
+                            <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
+                                <a
+                                    href={post.url || '#'}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="btn btn-primary"
+                                    style={{ textDecoration: 'none' }}
+                                >
+                                    查看原文 →
+                                </a>
+                            </div>
+                        </div>
                     </div>
                 </div>
             );
@@ -1058,8 +2759,15 @@
                     {topic.summary && (
                         <p className="topic-summary">{topic.summary}</p>
                     )}
+                    {topic.tags && topic.tags.length > 0 && (
+                        <div className="topic-tags" style={{ marginBottom: '1rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                            {topic.tags.slice(0, 3).map((tag, idx) => (
+                                <span key={idx} className="topic-tag">{tag}</span>
+                            ))}
+                        </div>
+                    )}
                     <div className="topic-meta">
-                        <span>📊 分數: {topic.finalScore || topic.discussionScore || 0}</span>
+                        <span>📊 分數: {Math.round(topic.finalScore || topic.discussionScore || 0)}</span>
                         <span>📰 {topic.newsItems?.length || 0} 則新聞</span>
                     </div>
                     <div className="topic-actions">
@@ -1117,6 +2825,196 @@
                             )}
                         </div>
                     )}
+                </div>
+            );
+        }
+
+        function DraftPage({ drafts, socialPostDrafts = [], onRemoveFromDraft, onRemoveSocialPostFromDraft, topicFeedback, onFeedback }) {
+            const [showModal, setShowModal] = useState(false);
+            const [selectedTopic, setSelectedTopic] = useState(null);
+            const [showSocialPostModal, setShowSocialPostModal] = useState(false);
+            const [selectedSocialPost, setSelectedSocialPost] = useState(null);
+
+            const handleTopicClick = (topic) => {
+                setSelectedTopic(topic);
+                setShowModal(true);
+            };
+
+            const handleSocialPostClick = (post) => {
+                setSelectedSocialPost(post);
+                setShowSocialPostModal(true);
+            };
+
+            const totalDrafts = drafts.length + socialPostDrafts.length;
+
+            if (totalDrafts === 0) {
+                return (
+                    <div className="main-content">
+                        <div className="empty-state">
+                            <div className="empty-state-icon">📝</div>
+                            <h3>草稿箱是空的</h3>
+                            <p>從「主題發現」或「社交主題」頁面將內容加入草稿箱</p>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="main-content">
+                    <div style={{ marginBottom: '2rem' }}>
+                        <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '1rem' }}>
+                            草稿箱 ({totalDrafts})
+                        </h2>
+                        <p style={{ color: 'var(--text-light)', fontSize: '0.875rem' }}>
+                            您已儲存的主題和社交貼文列表，可在此進行進一步操作
+                        </p>
+                    </div>
+
+                    {/* Topic Drafts */}
+                    {drafts.length > 0 && (
+                        <div style={{ marginBottom: '2rem' }}>
+                            <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1rem' }}>
+                                主題 ({drafts.length})
+                            </h3>
+                            <div className="topics-grid">
+                                {drafts.map(topic => (
+                                    <div key={topic._id} className="topic-card">
+                                        <div className="topic-header">
+                                            <div style={{ flex: 1 }}>
+                                                {topic.category && (
+                                                    <span className="topic-category">{topic.category}</span>
+                                                )}
+                                                <h3 className="topic-title">{topic.title}</h3>
+                                            </div>
+                                        </div>
+                                        {topic.summary && (
+                                            <p className="topic-summary">{topic.summary}</p>
+                                        )}
+                                        {topic.tags && topic.tags.length > 0 && (
+                                            <div style={{ marginBottom: '1rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                                {topic.tags.slice(0, 5).map((tag, idx) => (
+                                                    <span key={idx} className="topic-tag">{tag}</span>
+                                                ))}
+                                            </div>
+                                        )}
+                                        <div className="topic-meta">
+                                            <span>📊 分數: {Math.round(topic.finalScore || topic.discussionScore || 0)}</span>
+                                            <span>📰 {topic.newsItems?.length || 0} 則新聞</span>
+                                        </div>
+                                        <div className="topic-actions">
+                                            <button
+                                                className="btn btn-outline btn-sm"
+                                                onClick={() => handleTopicClick(topic)}
+                                            >
+                                                查看詳情
+                                            </button>
+                                            <button
+                                                className="btn btn-danger btn-sm"
+                                                onClick={() => onRemoveFromDraft(topic._id)}
+                                            >
+                                                移除
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Social Post Drafts */}
+                    {socialPostDrafts.length > 0 && (
+                        <div style={{ marginBottom: '2rem' }}>
+                            <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1rem' }}>
+                                社交貼文 ({socialPostDrafts.length})
+                            </h3>
+                            <div className="social-feed-grid">
+                                {socialPostDrafts.map(post => (
+                                    <div key={post._id || post.externalId} className="social-feed-card">
+                                        <div className="social-feed-header">
+                                            <div className="social-feed-handle">
+                                                <span style={{ fontSize: '1.2rem' }}>
+                                                    {post.platform === 'mastodon' ? '🐘' : 
+                                                     post.platform === 'x' ? '𝕏' : 
+                                                     post.platform === 'instagram' ? '📷' : '▶️'}
+                                                </span>
+                                                <div className="social-feed-handle-info">
+                                                    <div className="social-feed-handle-name">
+                                                        {post.author?.displayName || post.author?.handle || post.handle}
+                                                    </div>
+                                                    {post.author?.handle && (
+                                                        <div className="social-feed-handle-username">
+                                                            @{post.author.handle}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="social-posts-list">
+                                            <div 
+                                                className="social-post-row" 
+                                                onClick={() => handleSocialPostClick(post)}
+                                                style={{ cursor: 'pointer' }}
+                                            >
+                                                <div className="social-post-content">
+                                                    {(post.title || post.content) && (
+                                                        <div style={{ fontSize: '0.875rem', color: 'var(--text)', marginBottom: '0.5rem', lineHeight: '1.5' }}>
+                                                            {post.title || (post.content ? (post.content.length > 150 ? post.content.substring(0, 150) + '...' : post.content) : '')}
+                                                        </div>
+                                                    )}
+                                                    <div className="social-post-meta">
+                                                        <span style={{ fontSize: '0.7rem', color: 'var(--text-light)' }}>
+                                                            {new Date(post.updatedAt || post.publishedAt).toLocaleDateString('zh-TW')}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div style={{ padding: '0.75rem', borderTop: '1px solid var(--border)' }}>
+                                            <button
+                                                className="btn btn-danger btn-sm"
+                                                onClick={() => onRemoveSocialPostFromDraft(post._id || post.externalId)}
+                                                style={{ width: '100%' }}
+                                            >
+                                                移除
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {showModal && selectedTopic && (
+                        <TopicModal
+                            topic={selectedTopic}
+                            onClose={() => {
+                                setShowModal(false);
+                                setSelectedTopic(null);
+                            }}
+                        />
+                    )}
+
+                    {showSocialPostModal && selectedSocialPost && (
+                        <SocialPostModal
+                            post={selectedSocialPost}
+                            onClose={() => {
+                                setShowSocialPostModal(false);
+                                setSelectedSocialPost(null);
+                            }}
+                        />
+                    )}
+                </div>
+            );
+        }
+
+        function WriterCentralPage() {
+            return (
+                <div className="main-content">
+                    <div className="empty-state">
+                        <div className="empty-state-icon">✍️</div>
+                        <h3>寫作中心</h3>
+                        <p>此功能即將推出</p>
+                    </div>
                 </div>
             );
         }
@@ -1296,12 +3194,14 @@
             const [users, setUsers] = useState([]);
             const [sources, setSources] = useState([]);
             const [categories, setCategories] = useState([]);
+            const [socialHandles, setSocialHandles] = useState([]);
             const [loading, setLoading] = useState(false);
             const [activeTab, setActiveTab] = useState('users');
             const [showUserForm, setShowUserForm] = useState(false);
             const [editingUser, setEditingUser] = useState(null);
             const [userForm, setUserForm] = useState({ name: '', password: '', role: 'USER', email: '' });
             const [sourceForm, setSourceForm] = useState({ name: '', type: 'rss', url: '', remark: '' });
+            const [socialHandleForm, setSocialHandleForm] = useState({ platform: 'mastodon', handle: '', instanceBaseUrl: '', displayName: '', remark: '', isActive: true });
 
             useEffect(() => {
                 loadData();
@@ -1337,6 +3237,15 @@
                     if (categoriesRes.ok) {
                         const categoriesData = await categoriesRes.json();
                         setCategories(categoriesData.data || []);
+                    }
+
+                    // Load social handles
+                    const socialHandlesRes = await fetch('/api/social/admin/handles', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (socialHandlesRes.ok) {
+                        const socialHandlesData = await socialHandlesRes.json();
+                        setSocialHandles(socialHandlesData.data || []);
                     }
                 } catch (error) {
                     showMessage('載入資料失敗: ' + error.message, 'error');
@@ -1440,6 +3349,74 @@
                 }
             };
 
+            const handleCreateSocialHandle = async () => {
+                try {
+                    const token = localStorage.getItem('jwt_token');
+                    const res = await fetch('/api/social/admin/handles', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(socialHandleForm)
+                    });
+
+                    if (res.ok) {
+                        showMessage('社交媒體帳號建立成功', 'success');
+                        setSocialHandleForm({ platform: 'mastodon', handle: '', instanceBaseUrl: '', displayName: '', remark: '', isActive: true });
+                        loadData();
+                    } else {
+                        const data = await res.json();
+                        showMessage(data.message || '建立失敗', 'error');
+                    }
+                } catch (error) {
+                    showMessage('錯誤: ' + error.message, 'error');
+                }
+            };
+
+            const handleDeleteSocialHandle = async (handleId) => {
+                if (!confirm('確定要刪除此社交媒體帳號嗎？')) return;
+                
+                try {
+                    const token = localStorage.getItem('jwt_token');
+                    const res = await fetch(`/api/social/admin/handles/${handleId}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+
+                    if (res.ok) {
+                        showMessage('刪除成功', 'success');
+                        loadData();
+                    } else {
+                        const data = await res.json();
+                        showMessage(data.message || '刪除失敗', 'error');
+                    }
+                } catch (error) {
+                    showMessage('錯誤: ' + error.message, 'error');
+                }
+            };
+
+            const handleFetchSocialHandle = async (handleId) => {
+                try {
+                    const token = localStorage.getItem('jwt_token');
+                    const res = await fetch(`/api/social/admin/handles/${handleId}/fetch`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+
+                    if (res.ok) {
+                        const data = await res.json();
+                        showMessage(`已獲取 ${data.data.postsFetched} 則動態`, 'success');
+                        loadData();
+                    } else {
+                        const data = await res.json();
+                        showMessage(data.message || '獲取失敗', 'error');
+                    }
+                } catch (error) {
+                    showMessage('錯誤: ' + error.message, 'error');
+                }
+            };
+
             const handleAddCategory = async (categoryName) => {
                 if (!categoryName.trim()) return;
                 try {
@@ -1501,19 +3478,25 @@
                             className={`btn ${activeTab === 'users' ? 'btn-primary' : 'btn-outline'}`}
                             onClick={() => setActiveTab('users')}
                         >
-                            👥 使用者
+                            👥 用戶管理
                         </button>
                         <button
                             className={`btn ${activeTab === 'sources' ? 'btn-primary' : 'btn-outline'}`}
                             onClick={() => setActiveTab('sources')}
                         >
-                            📰 來源
+                            📰 新聞來源
                         </button>
                         <button
                             className={`btn ${activeTab === 'categories' ? 'btn-primary' : 'btn-outline'}`}
                             onClick={() => setActiveTab('categories')}
                         >
-                            📂 分類
+                            📂 題目分類
+                        </button>
+                        <button
+                            className={`btn ${activeTab === 'social' ? 'btn-primary' : 'btn-outline'}`}
+                            onClick={() => setActiveTab('social')}
+                        >
+                            📱 社交媒體
                         </button>
                     </div>
 
@@ -1724,6 +3707,130 @@
                                 }}>
                                     新增分類
                                 </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'social' && (
+                        <div className="container">
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                                <h2>社交媒體帳號管理</h2>
+                            </div>
+                            <p style={{ color: 'var(--text-light)', marginBottom: '1rem' }}>
+                                管理要追蹤的社交媒體帳號（Mastodon、YouTube、X、Instagram）
+                            </p>
+
+                            <div style={{ padding: '1rem', background: 'var(--bg)', borderRadius: '8px', marginBottom: '1rem' }}>
+                                <h3 style={{ marginBottom: '1rem' }}>新增社交媒體帳號</h3>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                    <select
+                                        className="form-control"
+                                        value={socialHandleForm.platform}
+                                        onChange={(e) => setSocialHandleForm({ ...socialHandleForm, platform: e.target.value })}
+                                    >
+                                        <option value="mastodon">Mastodon</option>
+                                        <option value="youtube">YouTube</option>
+                                        <option value="x">X (Twitter)</option>
+                                        <option value="instagram">Instagram</option>
+                                    </select>
+                                    <input
+                                        type="text"
+                                        className="form-control"
+                                        placeholder="帳號（例如：user@instance.social、@youtube_channel、@twitter_handle 或 @instagram_handle）"
+                                        value={socialHandleForm.handle}
+                                        onChange={(e) => setSocialHandleForm({ ...socialHandleForm, handle: e.target.value })}
+                                    />
+                                    {socialHandleForm.platform === 'mastodon' && (
+                                        <input
+                                            type="text"
+                                            className="form-control"
+                                            placeholder="實例網址（選填，例如：https://mastodon.social）"
+                                            value={socialHandleForm.instanceBaseUrl}
+                                            onChange={(e) => setSocialHandleForm({ ...socialHandleForm, instanceBaseUrl: e.target.value })}
+                                        />
+                                    )}
+                                    <input
+                                        type="text"
+                                        className="form-control"
+                                        placeholder="顯示名稱（選填）"
+                                        value={socialHandleForm.displayName}
+                                        onChange={(e) => setSocialHandleForm({ ...socialHandleForm, displayName: e.target.value })}
+                                    />
+                                    <input
+                                        type="text"
+                                        className="form-control"
+                                        placeholder="備註（選填）"
+                                        value={socialHandleForm.remark}
+                                        onChange={(e) => setSocialHandleForm({ ...socialHandleForm, remark: e.target.value })}
+                                    />
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={socialHandleForm.isActive}
+                                            onChange={(e) => setSocialHandleForm({ ...socialHandleForm, isActive: e.target.checked })}
+                                        />
+                                        啟用
+                                    </label>
+                                </div>
+                                <button className="btn btn-primary" style={{ marginTop: '1rem' }} onClick={handleCreateSocialHandle}>
+                                    新增帳號
+                                </button>
+                            </div>
+
+                            <div style={{ display: 'grid', gap: '1rem' }}>
+                                {socialHandles.map(handle => (
+                                    <div key={handle._id} style={{
+                                        padding: '1rem',
+                                        background: 'var(--card-bg)',
+                                        borderRadius: '8px',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        border: '1px solid var(--border)'
+                                    }}>
+                                        <div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                <span>{handle.platform === 'mastodon' ? '🐘' : 
+                                                        handle.platform === 'x' ? '𝕏' : 
+                                                        handle.platform === 'instagram' ? '📷' : '▶️'}</span>
+                                                <strong>{handle.displayName || handle.handle}</strong>
+                                                {!handle.isActive && <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>(已停用)</span>}
+                                            </div>
+                                            <div style={{ fontSize: '0.875rem', color: 'var(--text-light)', marginTop: '0.25rem' }}>
+                                                @{handle.handle}
+                                                {handle.platform === 'mastodon' && handle.instanceBaseUrl && (
+                                                    <span> • {handle.instanceBaseUrl}</span>
+                                                )}
+                                                {handle.remark && <span> • {handle.remark}</span>}
+                                            </div>
+                                            {handle.lastFetchedAt && (
+                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: '0.25rem' }}>
+                                                    最後更新: {new Date(handle.lastFetchedAt).toLocaleString('zh-TW')}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                            <button
+                                                className="btn btn-outline btn-sm"
+                                                onClick={() => handleFetchSocialHandle(handle._id)}
+                                                title="立即獲取動態"
+                                            >
+                                                🔄 獲取
+                                            </button>
+                                            <button
+                                                className="btn btn-danger btn-sm"
+                                                onClick={() => handleDeleteSocialHandle(handle._id)}
+                                            >
+                                                刪除
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                                {socialHandles.length === 0 && (
+                                    <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-light)' }}>
+                                        尚未新增任何社交媒體帳號
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}
