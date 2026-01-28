@@ -238,112 +238,146 @@ async function getChannelInfo(channelId) {
   }
 }
 
+/** Delay helper for retries */
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 /**
  * Fetch videos from a channel using SociaVault API
+ * Retries on 502/503 (transient upstream errors).
  */
 async function fetchChannelVideos(channelId, limit = 20) {
-  try {
-    console.log(`[YouTube] Fetching channel videos for channelId: ${channelId}, limit: ${limit}`);
-    const apiKey = getApiKey();
-    const videos = [];
-    let continuationToken = null;
-    let pageCount = 0;
-    
-    do {
-      pageCount++;
-      console.log(`[YouTube] Fetching page ${pageCount} for channelId: ${channelId}`);
+  const apiKey = getApiKey();
+  const maxRetries = 3;
+  const retryDelayMs = 2000;
+  let lastError;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`[YouTube] Fetching channel videos for channelId: ${channelId}, limit: ${limit} (attempt ${attempt}/${maxRetries})`);
+      const videos = [];
+      let continuationToken = null;
+      let pageCount = 0;
+
+      do {
+        pageCount++;
+        console.log(`[YouTube] Fetching page ${pageCount} for channelId: ${channelId}`);
+
+        const response = await axios.get(`${SOCIAVAULT_API_BASE}/youtube/channel-videos`, {
+          params: {
+            channelId: channelId,
+            sort: 'latest',
+            includeExtras: true, // Get like + comment count and description
+            ...(continuationToken && { continuationToken: continuationToken })
+          },
+          headers: {
+            'X-API-Key': apiKey,
+            'User-Agent': 'LiteNews_AI/1.0'
+          },
+          timeout: 60000 // 60 seconds
+        });
       
-      const response = await axios.get(`${SOCIAVAULT_API_BASE}/youtube/channel-videos`, {
-        params: {
-          channelId: channelId,
-          sort: 'latest',
-          includeExtras: true, // Get like + comment count and description
-          ...(continuationToken && { continuationToken: continuationToken })
-        },
-        headers: {
-          'X-API-Key': apiKey,
-          'User-Agent': 'LiteNews_AI/1.0'
-        },
-        timeout: 60000 // Increased to 60 seconds
-      });
-      
-      console.log(`[YouTube] API response status: ${response.status}`);
-      console.log(`[YouTube] Response data keys:`, response.data ? Object.keys(response.data) : 'no data');
-      
-      // SociaVault API wraps the actual data in response.data.data
-      const videoData = response.data?.data || response.data;
-      console.log(`[YouTube] Video data keys:`, videoData ? Object.keys(videoData) : 'no videoData');
-      console.log(`[YouTube] Video data preview:`, JSON.stringify(videoData).substring(0, 500));
-      
-      if (videoData && videoData.videos) {
-        const videoArray = Array.isArray(videoData.videos) 
-          ? videoData.videos 
-          : Object.values(videoData.videos);
-        
-        console.log(`[YouTube] Found ${videoArray.length} videos in this page`);
-        videos.push(...videoArray);
-      } else {
-        console.warn(`[YouTube] No videos found in response data`);
-        console.warn(`[YouTube] Full response data structure:`, JSON.stringify(response.data).substring(0, 2000));
-      }
-      
-      // Get continuation token from nested structure
-      continuationToken = videoData?.continuationToken || response.data?.continuationToken;
-      
-      console.log(`[YouTube] Has continuation token: ${!!continuationToken}, Total videos so far: ${videos.length}`);
-      
-      // Break if we have enough videos or no more pages
-      if (videos.length >= limit || !continuationToken) {
-        break;
-      }
-    } while (continuationToken && videos.length < limit);
-    
-    // Limit to requested number
-    const result = videos.slice(0, limit);
-    console.log(`[YouTube] Returning ${result.length} videos (requested ${limit})`);
-    return result;
-  } catch (error) {
-    console.error(`[YouTube] Error fetching channel videos for ${channelId}:`, error.message);
-    
-    if (error.response) {
-      const status = error.response.status;
-      const errorData = error.response.data;
-      
-      console.error(`[YouTube] API error response - Status: ${status}`);
-      console.error(`[YouTube] API error response data:`, errorData);
-      
-      let errorMsg = 'Unknown error';
-      if (errorData) {
-        if (typeof errorData === 'string') {
-          errorMsg = errorData;
-        } else if (errorData.message) {
-          errorMsg = errorData.message;
-        } else if (errorData.error) {
-          errorMsg = errorData.error;
+        console.log(`[YouTube] API response status: ${response.status}`);
+        console.log(`[YouTube] Response data keys:`, response.data ? Object.keys(response.data) : 'no data');
+
+        // SociaVault API wraps the actual data in response.data.data
+        const videoData = response.data?.data || response.data;
+        console.log(`[YouTube] Video data keys:`, videoData ? Object.keys(videoData) : 'no videoData');
+        console.log(`[YouTube] Video data preview:`, JSON.stringify(videoData).substring(0, 500));
+
+        if (videoData && videoData.videos) {
+          const videoArray = Array.isArray(videoData.videos)
+            ? videoData.videos
+            : Object.values(videoData.videos);
+
+          console.log(`[YouTube] Found ${videoArray.length} videos in this page`);
+          videos.push(...videoArray);
         } else {
-          errorMsg = JSON.stringify(errorData).substring(0, 200);
+          console.warn(`[YouTube] No videos found in response data`);
+          console.warn(`[YouTube] Full response data structure:`, JSON.stringify(response.data).substring(0, 2000));
         }
-      } else {
-        errorMsg = error.response.statusText;
-      }
-      
-      if (status === 404) {
-        throw new Error(`YouTube channel videos not found: ${channelId}`);
-      } else if (status === 401 || status === 403) {
-        throw new Error(`SociaVault API authentication failed. Please check your SOCIAVAULT_API_KEY.`);
-      } else if (status === 402) {
-        throw new Error(`SociaVault API: Insufficient credits. Please check your account balance.`);
-      } else {
+
+        // Get continuation token from nested structure
+        continuationToken = videoData?.continuationToken || response.data?.continuationToken;
+
+        console.log(`[YouTube] Has continuation token: ${!!continuationToken}, Total videos so far: ${videos.length}`);
+
+        // Break if we have enough videos or no more pages
+        if (videos.length >= limit || !continuationToken) {
+          break;
+        }
+      } while (continuationToken && videos.length < limit);
+
+      // Limit to requested number
+      const result = videos.slice(0, limit);
+      console.log(`[YouTube] Returning ${result.length} videos (requested ${limit})`);
+      return result;
+    } catch (error) {
+      lastError = error;
+      console.error(`[YouTube] Error fetching channel videos for ${channelId} (attempt ${attempt}/${maxRetries}):`, error.message);
+
+      if (error.response) {
+        const status = error.response.status;
+        const errorData = error.response.data;
+
+        console.error(`[YouTube] API error response - Status: ${status}`);
+        if (errorData) console.error(`[YouTube] API error response data:`, errorData);
+
+        // Don't retry on client/auth/credits errors
+        if (status === 404) {
+          throw new Error(`YouTube channel videos not found: ${channelId}`);
+        }
+        if (status === 401 || status === 403) {
+          throw new Error(`SociaVault API authentication failed. Please check your SOCIAVAULT_API_KEY.`);
+        }
+        if (status === 402) {
+          throw new Error(`SociaVault API: Insufficient credits. Please check your account balance.`);
+        }
+
+        // Retry on 502 Bad Gateway / 503 Service Unavailable (upstream temporary errors)
+        if ((status === 502 || status === 503) && attempt < maxRetries) {
+          console.warn(`[YouTube] SociaVault API returned ${status}. Retrying in ${retryDelayMs}ms...`);
+          await delay(retryDelayMs);
+          continue;
+        }
+
+        if (status === 502) {
+          throw new Error('SociaVault API is temporarily unavailable (502 Bad Gateway). Please try again in a few minutes.');
+        }
+        if (status === 503) {
+          throw new Error('SociaVault API is temporarily overloaded (503). Please try again in a few minutes.');
+        }
+
+        let errorMsg = 'Unknown error';
+        if (errorData) {
+          if (typeof errorData === 'string') errorMsg = errorData;
+          else if (errorData.message) errorMsg = errorData.message;
+          else if (errorData.error) errorMsg = errorData.error;
+          else errorMsg = JSON.stringify(errorData).substring(0, 200);
+        } else {
+          errorMsg = error.response.statusText;
+        }
         throw new Error(`SociaVault API error (${status}): ${errorMsg}`);
       }
+
+      // Network/timeout or other non-API error: retry if attempts left
+      if (attempt < maxRetries) {
+        console.warn(`[YouTube] Request failed (${error.message}). Retrying in ${retryDelayMs}ms...`);
+        await delay(retryDelayMs);
+        continue;
+      }
+
+      console.error(`[YouTube] Non-API error details:`, {
+        message: error.message,
+        stack: error.stack?.substring(0, 500)
+      });
+      throw new Error(`Failed to fetch channel videos: ${error.message}`);
     }
-    
-    console.error(`[YouTube] Non-API error details:`, {
-      message: error.message,
-      stack: error.stack?.substring(0, 500)
-    });
-    throw new Error(`Failed to fetch channel videos: ${error.message}`);
   }
+
+  // Should not reach here; lastError is set before continue/throw
+  throw lastError || new Error(`Failed to fetch channel videos for ${channelId}`);
 }
 
 /**

@@ -234,11 +234,19 @@ function normalizePost(post, handle, profileInfo) {
     }
   }
   
-  // Extract timestamp
-  const timestamp = post.taken_at_timestamp || post.created_time || post.timestamp;
+  // Extract timestamp - SociaVault API returns 'taken_at' (Unix seconds)
+  const timestamp = post.taken_at || post.taken_at_timestamp || post.created_time || post.timestamp;
   const publishedAt = timestamp 
     ? (typeof timestamp === 'number' ? new Date(timestamp * 1000) : new Date(timestamp))
     : new Date();
+  
+  // Log warning if no date field found (for debugging)
+  if (!timestamp) {
+    console.warn(`[Threads] normalizePost: No date field found in post`, {
+      postId: post.id || post.pk || post.code,
+      availableKeys: Object.keys(post).filter(k => k.toLowerCase().includes('time') || k.toLowerCase().includes('date') || k.toLowerCase().includes('taken'))
+    });
+  }
   
   // Extract engagement metrics
   const likeCount = post.like_count || 

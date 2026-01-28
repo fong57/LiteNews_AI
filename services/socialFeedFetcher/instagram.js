@@ -63,7 +63,7 @@ async function getPosts(handle, limit = 20) {
           'X-API-Key': apiKey,
           'User-Agent': 'LiteNews_AI/1.0'
         },
-        timeout: 15000
+        timeout: 60000
       });
       
       // Check different possible response structures
@@ -202,9 +202,17 @@ function normalizePost(post, handle, profileInfo) {
     }
   }
   
-  // Extract timestamp
-  const timestamp = post.taken_at_timestamp || post.created_time;
+  // Extract timestamp - SociaVault API returns 'taken_at' (Unix seconds)
+  const timestamp = post.taken_at || post.taken_at_timestamp || post.created_time;
   const publishedAt = timestamp ? new Date(timestamp * 1000) : new Date();
+  
+  // Log warning if no date field found (for debugging)
+  if (!timestamp) {
+    console.warn(`[Instagram] normalizePost: No date field found in post`, {
+      postId: post.id || post.shortcode || post.pk,
+      availableKeys: Object.keys(post).filter(k => k.toLowerCase().includes('time') || k.toLowerCase().includes('date') || k.toLowerCase().includes('taken'))
+    });
+  }
   
   // Extract engagement metrics
   const likeCount = post.edge_media_preview_like?.count || 

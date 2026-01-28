@@ -39,10 +39,12 @@ async function fetchFeedsForAllHandles() {
         throw new Error(`Unsupported platform: ${handle.platform}`);
       }
       
-      // Update handle metadata if available
+      // Update handle metadata if available (only if not already set)
+      // displayName should only be updated by admin, so we only set it if empty
       if (feedData.displayName && !handle.displayName) {
         handle.displayName = feedData.displayName;
       }
+      // Only update avatarUrl if not already set to preserve admin-set values
       if (feedData.avatarUrl && !handle.avatarUrl) {
         handle.avatarUrl = feedData.avatarUrl;
       }
@@ -136,11 +138,9 @@ async function fetchFeedForHandle(handleId) {
     throw new Error(`Unsupported platform: ${handle.platform}`);
   }
   
-  // Update handle metadata
-  if (feedData.displayName) {
-    handle.displayName = feedData.displayName;
-  }
-  if (feedData.avatarUrl) {
+  // Update handle metadata (only if not already set - displayName should only be updated by admin)
+  // Only update avatarUrl if not already set to preserve admin-set values
+  if (feedData.avatarUrl && !handle.avatarUrl) {
     handle.avatarUrl = feedData.avatarUrl;
   }
   handle.lastFetchedAt = new Date();

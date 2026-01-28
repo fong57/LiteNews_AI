@@ -4,6 +4,13 @@ const axios = require('axios');
 const SOCIAVAULT_API_BASE = 'https://api.sociavault.com/v1/scrape';
 const LOG_PREFIX = '[Facebook]';
 
+// Configuration constants
+const MAX_REQUESTS = 10; // Maximum number of pagination requests to prevent excessive API calls
+const DELAY_BETWEEN_REQUESTS_MS = 1500; // Delay between pagination requests to avoid rate limits
+const MAX_RETRIES = 3; // Maximum retries for 502/503 errors
+const RETRY_DELAY_MS = 2000; // Delay before retrying on error
+const MIN_POSTS_PER_PAGE = 2; // If we get fewer posts than this, likely hitting rate limits
+
 /**
  * Get SociaVault API key from environment
  */
@@ -13,6 +20,13 @@ function getApiKey() {
     throw new Error('SOCIAVAULT_API_KEY environment variable is required');
   }
   return apiKey;
+}
+
+/**
+ * Delay helper for rate limiting and retries
+ */
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 /**
@@ -34,7 +48,36 @@ function buildParams(handle, cursor) {
 }
 
 /**
+ * Make a single API request with retry logic for transient errors
+ */
+async function makeRequestWithRetry(requestUrl, requestParams, apiKey, attempt = 1) {
+  try {
+    const response = await axios.get(requestUrl, {
+      params: requestParams,
+      headers: {
+        'X-API-Key': apiKey,
+        'User-Agent': 'LiteNews_AI/1.0'
+      },
+      timeout: 60000
+    });
+    return { success: true, response };
+  } catch (error) {
+    const status = error.response?.status;
+    const isRetryable = status === 502 || status === 503 || status === 504;
+    
+    if (isRetryable && attempt < MAX_RETRIES) {
+      console.log(`${LOG_PREFIX} retryable error (${status}) on attempt ${attempt}/${MAX_RETRIES}, retrying in ${RETRY_DELAY_MS}ms...`);
+      await delay(RETRY_DELAY_MS * attempt); // Exponential backoff
+      return makeRequestWithRetry(requestUrl, requestParams, apiKey, attempt + 1);
+    }
+    
+    return { success: false, error };
+  }
+}
+
+/**
  * Fetch profile posts from Facebook (posts only)
+ * Optimized to reduce API calls and handle rate limits gracefully
  */
 async function getPosts(handle, limit = 20) {
   const apiKey = getApiKey();
@@ -49,25 +92,78 @@ async function getPosts(handle, limit = 20) {
     return keys.map((k) => obj[k]).filter((item) => item != null);
   };
 
+  const allPosts = [];
   try {
-    const allPosts = [];
     let cursor = null;
     let requestCount = 0;
+    let consecutiveLowCountPages = 0; // Track if we're getting very few posts per page
 
     do {
+      // Enforce maximum request limit to prevent excessive API calls
+      if (requestCount >= MAX_REQUESTS) {
+        console.warn(`${LOG_PREFIX} reached max requests (${MAX_REQUESTS}), stopping pagination | totalPosts=${allPosts.length}`);
+        break;
+      }
+
       requestCount++;
       const requestParams = buildParams(handle, cursor);
       console.log(`${LOG_PREFIX} request #${requestCount} | params=${JSON.stringify(requestParams)}`);
       const requestUrl = `${SOCIAVAULT_API_BASE}/facebook/profile/posts`;
 
-      const response = await axios.get(requestUrl, {
-        params: requestParams,
-        headers: {
-          'X-API-Key': apiKey,
-          'User-Agent': 'LiteNews_AI/1.0'
-        },
-        timeout: 60000
-      });
+      // Add delay between requests (except for the first one) to avoid rate limits
+      if (requestCount > 1) {
+        await delay(DELAY_BETWEEN_REQUESTS_MS);
+      }
+
+      // Make request with retry logic
+      const { success, response, error } = await makeRequestWithRetry(requestUrl, requestParams, apiKey);
+
+      if (!success) {
+        // Handle non-retryable errors
+        const isAxios = error.response != null;
+        const status = isAxios ? error.response.status : null;
+        const errorData = isAxios ? error.response.data : null;
+        const errorCode = error.code || '';
+        const errorMsg = error.message || '';
+
+        console.error(`${LOG_PREFIX} getPosts error | handle="${handle}" | isAxios=${isAxios} | status=${status} | code=${errorCode} | message=${errorMsg}`);
+        
+        // If we have some posts already, return them instead of failing completely
+        if (allPosts.length > 0) {
+          console.warn(`${LOG_PREFIX} returning partial results due to error | posts=${allPosts.length} | error=${errorMsg}`);
+          return allPosts.slice(0, limit);
+        }
+
+        if (errorData) {
+          const errStr = typeof errorData === 'string' ? errorData : JSON.stringify(errorData).substring(0, 400);
+          console.error(`${LOG_PREFIX} error response body: ${errStr}`);
+        }
+
+        if (error.response) {
+          const status = error.response.status;
+          const errorData = error.response.data;
+          let errorMsg = 'Unknown error';
+          if (errorData) {
+            if (typeof errorData === 'string') errorMsg = errorData;
+            else if (errorData.message) errorMsg = errorData.message;
+            else if (errorData.error) errorMsg = errorData.error;
+            else errorMsg = JSON.stringify(errorData).substring(0, 200);
+          } else {
+            errorMsg = error.response.statusText;
+          }
+          if (status === 404) {
+            throw new Error(`Facebook profile not found: ${handle}. Please verify the URL or page ID.`);
+          }
+          if (status === 401 || status === 403) {
+            throw new Error('SociaVault API authentication failed. Please check your SOCIAVAULT_API_KEY.');
+          }
+          if (status === 402) {
+            throw new Error('SociaVault API: Insufficient credits. Please check your account balance.');
+          }
+          throw new Error(`SociaVault API error (${status}): ${errorMsg}`);
+        }
+        throw new Error(`Failed to fetch Facebook posts: ${error.message}`);
+      }
 
       const status = response.status;
       const data = response.data;
@@ -96,6 +192,17 @@ async function getPosts(handle, limit = 20) {
         items = [];
       }
 
+      // Check if we're getting very few posts per page (possible rate limiting)
+      if (items.length < MIN_POSTS_PER_PAGE && requestCount > 1) {
+        consecutiveLowCountPages++;
+        if (consecutiveLowCountPages >= 2) {
+          console.warn(`${LOG_PREFIX} getting very few posts per page (${items.length}), likely hitting rate limits. Stopping early. | totalPosts=${allPosts.length}`);
+          break;
+        }
+      } else {
+        consecutiveLowCountPages = 0; // Reset counter if we get a good page
+      }
+
       if (items.length > 0) {
         allPosts.push(...items);
       }
@@ -103,6 +210,7 @@ async function getPosts(handle, limit = 20) {
       cursor = data?.cursor || data?.data?.cursor || null;
       console.log(`${LOG_PREFIX} page done | itemsThisPage=${items.length} | totalSoFar=${allPosts.length} | hasCursor=${!!cursor}`);
 
+      // Break if we have enough posts or no more pages
       if (allPosts.length >= limit || !cursor) {
         break;
       }
@@ -112,49 +220,16 @@ async function getPosts(handle, limit = 20) {
     if (result.length === 0) {
       console.warn(`${LOG_PREFIX} getPosts done | no posts for handle="${handle}"`);
     } else {
-      console.log(`${LOG_PREFIX} getPosts done | handle="${handle}" | posts=${result.length}`);
+      console.log(`${LOG_PREFIX} getPosts done | handle="${handle}" | posts=${result.length} | requests=${requestCount}`);
     }
     return result;
   } catch (error) {
-    const isAxios = error.response != null;
-    const status = isAxios ? error.response.status : null;
-    const errorData = isAxios ? error.response.data : null;
-    const errorCode = error.code || '';
-    const errorMsg = error.message || '';
-
-    console.error(`${LOG_PREFIX} getPosts error | handle="${handle}" | isAxios=${isAxios} | status=${status} | code=${errorCode} | message=${errorMsg}`);
-    if (errorData) {
-      const errStr = typeof errorData === 'string' ? errorData : JSON.stringify(errorData).substring(0, 400);
-      console.error(`${LOG_PREFIX} error response body: ${errStr}`);
+    // If we have some posts, return them instead of throwing
+    if (allPosts && allPosts.length > 0) {
+      console.warn(`${LOG_PREFIX} returning partial results due to error | posts=${allPosts.length} | error=${error.message}`);
+      return allPosts.slice(0, limit);
     }
-    if (error.code === 'ECONNABORTED') {
-      console.error(`${LOG_PREFIX} request timed out (60s)`);
-    }
-
-    if (error.response) {
-      const status = error.response.status;
-      const errorData = error.response.data;
-      let errorMsg = 'Unknown error';
-      if (errorData) {
-        if (typeof errorData === 'string') errorMsg = errorData;
-        else if (errorData.message) errorMsg = errorData.message;
-        else if (errorData.error) errorMsg = errorData.error;
-        else errorMsg = JSON.stringify(errorData).substring(0, 200);
-      } else {
-        errorMsg = error.response.statusText;
-      }
-      if (status === 404) {
-        throw new Error(`Facebook profile not found: ${handle}. Please verify the URL or page ID.`);
-      }
-      if (status === 401 || status === 403) {
-        throw new Error('SociaVault API authentication failed. Please check your SOCIAVAULT_API_KEY.');
-      }
-      if (status === 402) {
-        throw new Error('SociaVault API: Insufficient credits. Please check your account balance.');
-      }
-      throw new Error(`SociaVault API error (${status}): ${errorMsg}`);
-    }
-    throw new Error(`Failed to fetch Facebook posts: ${error.message}`);
+    throw error;
   }
 }
 
@@ -165,20 +240,23 @@ function normalizePost(post, handle, profileInfo) {
   const content = post.message || post.text || post.content || post.description || '';
   const contentStr = typeof content === 'string' ? content : String(content || '');
 
+  // SociaVault API returns 'publishTime' (Unix seconds); also support Graph API-style fields
   let publishedAt = new Date();
-  if (post.created_time) {
+  if (post.publishTime != null) {
+    publishedAt = new Date(typeof post.publishTime === 'number' ? post.publishTime * 1000 : post.publishTime);
+  } else if (post.created_time) {
     publishedAt = new Date(post.created_time);
-  } else if (post.timestamp) {
+  } else if (post.timestamp != null) {
     publishedAt = new Date(typeof post.timestamp === 'number' ? post.timestamp * 1000 : post.timestamp);
   } else if (post.created_at) {
     publishedAt = new Date(post.created_at);
   }
-  
+
   // Log date parsing for debugging
-  if (!post.created_time && !post.timestamp && !post.created_at) {
+  if (post.publishTime == null && !post.created_time && post.timestamp == null && !post.created_at) {
     console.warn(`${LOG_PREFIX} normalizePost: No date field found in post`, {
       postId: post.id || post.post_id,
-      availableKeys: Object.keys(post).filter(k => k.toLowerCase().includes('time') || k.toLowerCase().includes('date'))
+      availableKeys: Object.keys(post).filter(k => k.toLowerCase().includes('time') || k.toLowerCase().includes('date') || k.toLowerCase().includes('publish'))
     });
   }
 

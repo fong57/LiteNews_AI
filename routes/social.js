@@ -82,26 +82,15 @@ router.get('/feed', async (req, res) => {
     }
     
     let query = { handleId: handleId };
-    let sortOption = {};
-    
-    if (sort === 'popularity') {
-      sortOption = { 'engagement.score': -1 };
-    } else if (sort === 'updatedAt') {
-      // Sort by updatedAt (更新時間)
-      sortOption = { updatedAt: -1 };
-    } else if (sort === 'recency') {
-      // Sort by publishedAt (首發時間)
-      sortOption = { publishedAt: -1 };
-    } else {
-      // Default: updatedAt
-      sortOption = { updatedAt: -1 };
-    }
-    
+    // Always return newest first by publishedAt; exclude null/invalid for reliable sort
+    query.publishedAt = { $exists: true, $ne: null };
+    const sortOption = { publishedAt: -1, _id: -1 };
+
     const posts = await SocialPost.find(query)
       .sort(sortOption)
       .limit(parseInt(limit))
       .lean();
-    
+
     res.json({
       status: 'success',
       count: posts.length,
