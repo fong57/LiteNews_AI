@@ -5,9 +5,11 @@ const { fetchYouTubeFeed } = require('./youtube');
 const { fetchXFeed } = require('./x');
 const { fetchInstagramFeed } = require('./instagram');
 const { fetchThreadsFeed } = require('./threads');
+const { fetchFacebookFeed } = require('./facebook');
 
 /**
  * Fetch feeds for all active social handles
+ * Only fetches handles where isActive === true
  */
 async function fetchFeedsForAllHandles() {
   const handles = await SocialHandle.find({ isActive: true });
@@ -31,6 +33,8 @@ async function fetchFeedsForAllHandles() {
         feedData = await fetchInstagramFeed(handle.handle, 20);
       } else if (handle.platform === 'threads') {
         feedData = await fetchThreadsFeed(handle.handle, 20);
+      } else if (handle.platform === 'facebook') {
+        feedData = await fetchFacebookFeed(handle.handle, 20);
       } else {
         throw new Error(`Unsupported platform: ${handle.platform}`);
       }
@@ -56,6 +60,7 @@ async function fetchFeedsForAllHandles() {
             },
             {
               $set: {
+                platform: postData.platform,
                 handleId: handle._id,
                 handle: handle.handle,
                 content: postData.content,
@@ -125,6 +130,8 @@ async function fetchFeedForHandle(handleId) {
     feedData = await fetchInstagramFeed(handle.handle, 20);
   } else if (handle.platform === 'threads') {
     feedData = await fetchThreadsFeed(handle.handle, 20);
+  } else if (handle.platform === 'facebook') {
+    feedData = await fetchFacebookFeed(handle.handle, 20);
   } else {
     throw new Error(`Unsupported platform: ${handle.platform}`);
   }
@@ -148,17 +155,18 @@ async function fetchFeedForHandle(handleId) {
           platform: postData.platform,
           externalId: postData.externalId
         },
-        {
-          $set: {
-            handleId: handle._id,
-            handle: handle.handle,
-            content: postData.content,
-            title: postData.title,
-            description: postData.description,
-            url: postData.url,
-            publishedAt: postData.publishedAt,
-            author: postData.author,
-            engagement: {
+          {
+            $set: {
+              platform: postData.platform,
+              handleId: handle._id,
+              handle: handle.handle,
+              content: postData.content,
+              title: postData.title,
+              description: postData.description,
+              url: postData.url,
+              publishedAt: postData.publishedAt,
+              author: postData.author,
+              engagement: {
               likes: postData.engagement.likes || 0,
               reposts: postData.engagement.reposts || 0,
               replies: postData.engagement.replies || 0,
@@ -166,9 +174,9 @@ async function fetchFeedForHandle(handleId) {
               comments: postData.engagement.comments || 0,
               score: postData.engagement.score || 0
             },
-            metadata: postData.metadata
-          }
-        },
+              metadata: postData.metadata
+            }
+          },
         {
           upsert: true,
           new: true

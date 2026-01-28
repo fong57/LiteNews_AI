@@ -47,6 +47,8 @@ mongoose
   .connect(MONGODB_URI, mongooseOptions)
   .then(() => {
     console.log('✅ Connected to MongoDB');
+    const { start: startAutoSocialFetch } = require('./services/autoSocialFetchScheduler');
+    startAutoSocialFetch();
   })
   .catch((err) => {
     console.error('❌ MongoDB connection failed:', err.message);

@@ -115,21 +115,6 @@ router.get('/feed', async (req, res) => {
   }
 });
 
-// Fetch/refresh feeds for all handles
-router.post('/fetch', async (req, res) => {
-  try {
-    const results = await fetchFeedsForAllHandles();
-    
-    res.json({
-      status: 'success',
-      message: `Fetched feeds for ${results.success} handle(s)`,
-      data: results
-    });
-  } catch (error) {
-    res.status(500).json({ status: 'error', message: error.message });
-  }
-});
-
 // ==================== ADMIN ROUTES ====================
 
 // Get all social handles (admin)
@@ -160,10 +145,17 @@ router.post('/admin/handles', adminOnly, async (req, res) => {
       });
     }
     
-    if (!['youtube', 'x', 'instagram', 'threads'].includes(platform)) {
+    if (!displayName || !displayName.trim()) {
       return res.status(400).json({
         status: 'error',
-        message: 'Platform must be "youtube", "x", "instagram", or "threads"'
+        message: 'Display name is required'
+      });
+    }
+    
+    if (!['youtube', 'x', 'instagram', 'threads', 'facebook'].includes(platform)) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Platform must be "youtube", "x", "instagram", "threads", or "facebook"'
       });
     }
     
@@ -194,6 +186,14 @@ router.put('/admin/handles/:handleId', adminOnly, async (req, res) => {
   try {
     const { handleId } = req.params;
     const { platform, handle, instanceBaseUrl, displayName, remark, isActive, avatarUrl } = req.body;
+    
+    // Validate displayName if provided
+    if (displayName !== undefined && (!displayName || !displayName.trim())) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Display name is required'
+      });
+    }
     
     const updateData = {};
     if (platform) updateData.platform = platform;
@@ -251,12 +251,30 @@ router.delete('/admin/handles/:handleId', adminOnly, async (req, res) => {
 router.post('/admin/handles/:handleId/fetch', adminOnly, async (req, res) => {
   try {
     const { handleId } = req.params;
+    if (!handleId || handleId === 'undefined' || handleId === 'null') {
+      return res.status(400).json({ status: 'error', message: 'handleId is required' });
+    }
     const result = await fetchFeedForHandle(handleId);
     
     res.json({
       status: 'success',
       message: `Fetched ${result.postsFetched} posts`,
       data: result
+    });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: error.message });
+  }
+});
+
+// Fetch/refresh feeds for all handles (must be after /admin/handles/:handleId/fetch so single-handle is matched first)
+router.post('/fetch', async (req, res) => {
+  try {
+    const results = await fetchFeedsForAllHandles();
+    
+    res.json({
+      status: 'success',
+      message: `Fetched feeds for ${results.success} handle(s)`,
+      data: results
     });
   } catch (error) {
     res.status(500).json({ status: 'error', message: error.message });

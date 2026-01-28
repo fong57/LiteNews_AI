@@ -980,6 +980,7 @@
             const [socialTimeframe, setSocialTimeframe] = useState('24h'); // Default: past 24 hours
             const [socialSort, setSocialSort] = useState('updatedAt'); // Default: sort by updatedAt (更新時間)
             const [socialPostDrafts, setSocialPostDrafts] = useState([]); // Array of social post objects
+            const [lastAutoFetchTime, setLastAutoFetchTime] = useState(null);
             const [preferences, setPreferences] = useState({
                 sources: [],
                 categories: [],
@@ -1345,6 +1346,22 @@
                 setTimeout(() => setMessage(null), 5000);
             };
 
+            // Load last auto-fetch time
+            const loadLastAutoFetchTime = async () => {
+                try {
+                    const token = localStorage.getItem('jwt_token');
+                    const res = await fetch('/api/admin/social-fetch-schedule', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        setLastAutoFetchTime(data.data?.lastRunAt || null);
+                    }
+                } catch (error) {
+                    console.error('Failed to load last auto-fetch time:', error);
+                }
+            };
+
             // Load social handles and feeds
             const loadSocialHandles = async () => {
                 try {
@@ -1382,7 +1399,14 @@
                             console.log(`[${handle.handle}] Loaded posts from API:`, {
                                 count: posts.length,
                                 platform: handle.platform,
-                                postIds: posts.map(p => p.externalId || p._id).slice(0, 5)
+                                postIds: posts.map(p => p.externalId || p._id).slice(0, 5),
+                                samplePost: posts.length > 0 ? {
+                                    externalId: posts[0].externalId,
+                                    platform: posts[0].platform,
+                                    publishedAt: posts[0].publishedAt,
+                                    updatedAt: posts[0].updatedAt,
+                                    hasContent: !!posts[0].content
+                                } : null
                             });
                             feedsMap[handle._id] = {
                                 handle: handle,
@@ -1463,10 +1487,11 @@
                 }
             }, [isLoggedIn]);
 
-            // Load social handles when logged in
+            // Load social handles and last auto-fetch time when logged in
             useEffect(() => {
                 if (isLoggedIn) {
                     loadSocialHandles();
+                    loadLastAutoFetchTime();
                 }
             }, [isLoggedIn]);
 
@@ -1530,6 +1555,7 @@
                         onSortChange={setSocialSort}
                         onAddToDraft={handleAddSocialPostToDraft}
                         drafts={socialPostDrafts}
+                        lastAutoFetchTime={lastAutoFetchTime}
                     />
                 );
             } else {
@@ -1785,7 +1811,7 @@
             );
         }
 
-        function SocialTopicDiscovery({ handles, feeds, loading, onRefresh, timeframe, onTimeframeChange, sort, onSortChange, onAddToDraft, drafts }) {
+        function SocialTopicDiscovery({ handles, feeds, loading, onRefresh, timeframe, onTimeframeChange, sort, onSortChange, onAddToDraft, drafts, lastAutoFetchTime }) {
             if (!handles || handles.length === 0) {
                 return (
                     <div className="empty-state">
@@ -1847,6 +1873,12 @@
                                 {loading ? '載入中...' : '刷新貼文'}
                             </button>
                         </div>
+                        {lastAutoFetchTime && (
+                            <div className="control-group" style={{ fontSize: '0.875rem', color: 'var(--text-light)', display: 'flex', alignItems: 'center' }}>
+                                <span>最後自動獲取：</span>
+                                <span style={{ marginLeft: '0.5rem' }}>{new Date(lastAutoFetchTime).toLocaleString('zh-TW')}</span>
+                            </div>
+                        )}
                     </div>
                     <div className="social-feed-grid">
                         {handles.map(handle => (
@@ -2070,7 +2102,8 @@
             const allPosts = feed?.posts || [];
             const platformBadge = handle.platform === 'x' ? '𝕏' : 
                                    handle.platform === 'instagram' ? '📷' : 
-                                   handle.platform === 'threads' ? '🧵' : '▶️';
+                                   handle.platform === 'threads' ? '🧵' : 
+                                   handle.platform === 'facebook' ? '📘' : '▶️';
 
             // Parse timeframe and calculate cutoff date
             const getTimeframeCutoff = (timeframe) => {
@@ -2103,7 +2136,13 @@
                 totalPosts: allPosts.length,
                 timeframe: timeframe,
                 cutoffDate: cutoffDate.toISOString(),
-                platform: handle.platform
+                platform: handle.platform,
+                samplePost: allPosts.length > 0 ? {
+                    externalId: allPosts[0].externalId,
+                    platform: allPosts[0].platform,
+                    publishedAt: allPosts[0].publishedAt,
+                    updatedAt: allPosts[0].updatedAt
+                } : null
             });
             
             const filteredPosts = allPosts.filter(post => {
@@ -2132,7 +2171,15 @@
                 
                 // If neither date exists, exclude the post
                 if (!updatedAtDate && !publishedAtDate) {
-                    console.warn(`[${handle.handle}] Post missing both updatedAt and publishedAt/createdAt:`, post.externalId, post.platform);
+                    console.warn(`[${handle.handle}] Post missing both updatedAt and publishedAt/createdAt:`, {
+                        externalId: post.externalId,
+                        platform: post.platform,
+                        hasUpdatedAt: !!post.updatedAt,
+                        hasPublishedAt: !!post.publishedAt,
+                        hasCreatedAt: !!post.createdAt,
+                        updatedAtValue: post.updatedAt,
+                        publishedAtValue: post.publishedAt
+                    });
                     return false;
                 }
                 
@@ -2156,7 +2203,13 @@
 
             console.log(`[${handle.handle}] After filtering:`, {
                 filteredCount: filteredPosts.length,
-                platform: handle.platform
+                platform: handle.platform,
+                filteredOut: allPosts.length - filteredPosts.length,
+                sampleFilteredPost: filteredPosts.length > 0 ? {
+                    externalId: filteredPosts[0].externalId,
+                    publishedAt: filteredPosts[0].publishedAt,
+                    updatedAt: filteredPosts[0].updatedAt
+                } : null
             });
 
             // Apply sort and limit
@@ -2202,10 +2255,7 @@
                             <span style={{ fontSize: '1.2rem' }}>{platformBadge}</span>
                             <div className="social-feed-handle-info">
                                 <div className="social-feed-handle-name">
-                                    {handle.displayName || handle.handle}
-                                </div>
-                                <div className="social-feed-handle-username">
-                                    @{handle.handle}
+                                    {handle.displayName}
                                 </div>
                             </div>
                         </div>
@@ -2936,7 +2986,8 @@
                                                 <span style={{ fontSize: '1.2rem' }}>
                                                     {post.platform === 'x' ? '𝕏' : 
                                                      post.platform === 'instagram' ? '📷' : 
-                                                     post.platform === 'threads' ? '🧵' : '▶️'}
+                                                     post.platform === 'threads' ? '🧵' : 
+                                                     post.platform === 'facebook' ? '📘' : '▶️'}
                                                 </span>
                                                 <div className="social-feed-handle-info">
                                                     <div className="social-feed-handle-name">
@@ -3357,6 +3408,9 @@
             const [socialHandleForm, setSocialHandleForm] = useState({ platform: 'youtube', handle: '', instanceBaseUrl: '', displayName: '', remark: '', isActive: true });
             const [editingSocialHandle, setEditingSocialHandle] = useState(null);
             const [editSocialHandleForm, setEditSocialHandleForm] = useState({ handle: '', displayName: '', remark: '', isActive: true });
+            const [autoFetchScheduleHours, setAutoFetchScheduleHours] = useState(() => Array(24).fill(false));
+            const [savingSchedule, setSavingSchedule] = useState(false);
+            const [togglingHandleId, setTogglingHandleId] = useState(null);
 
             useEffect(() => {
                 loadData();
@@ -3401,6 +3455,18 @@
                     if (socialHandlesRes.ok) {
                         const socialHandlesData = await socialHandlesRes.json();
                         setSocialHandles(socialHandlesData.data || []);
+                    }
+
+                    // Load auto social fetch schedule
+                    const scheduleRes = await fetch('/api/admin/social-fetch-schedule', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (scheduleRes.ok) {
+                        const scheduleData = await scheduleRes.json();
+                        const hours = scheduleData.data?.scheduleHours;
+                        if (Array.isArray(hours) && hours.length === 24) {
+                            setAutoFetchScheduleHours(hours.map(Boolean));
+                        }
                     }
                 } catch (error) {
                     showMessage('載入資料失敗: ' + error.message, 'error');
@@ -3505,6 +3571,10 @@
             };
 
             const handleCreateSocialHandle = async () => {
+                if (!socialHandleForm.displayName || !socialHandleForm.displayName.trim()) {
+                    showMessage('顯示名稱為必填項目', 'error');
+                    return;
+                }
                 try {
                     const token = localStorage.getItem('jwt_token');
                     const res = await fetch('/api/social/admin/handles', {
@@ -3552,9 +3622,14 @@
             };
 
             const handleFetchSocialHandle = async (handleId) => {
+                const id = (handleId && (typeof handleId === 'string' ? handleId : handleId.toString && handleId.toString())) || '';
+                if (!id) {
+                    showMessage('無法取得帳號 ID', 'error');
+                    return;
+                }
                 try {
                     const token = localStorage.getItem('jwt_token');
-                    const res = await fetch(`/api/social/admin/handles/${handleId}/fetch`, {
+                    const res = await fetch(`/api/social/admin/handles/${id}/fetch`, {
                         method: 'POST',
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
@@ -3587,7 +3662,36 @@
                 setEditSocialHandleForm({ handle: '', displayName: '', remark: '', isActive: true });
             };
 
+            const handleSaveAutoFetchSchedule = async () => {
+                setSavingSchedule(true);
+                try {
+                    const token = localStorage.getItem('jwt_token');
+                    const res = await fetch('/api/admin/social-fetch-schedule', {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ scheduleHours: autoFetchScheduleHours })
+                    });
+                    if (res.ok) {
+                        showMessage('自動抓取排程已儲存', 'success');
+                    } else {
+                        const data = await res.json();
+                        showMessage(data.message || '儲存失敗', 'error');
+                    }
+                } catch (error) {
+                    showMessage('錯誤: ' + error.message, 'error');
+                } finally {
+                    setSavingSchedule(false);
+                }
+            };
+
             const handleUpdateSocialHandle = async (handleId) => {
+                if (!editSocialHandleForm.displayName || !editSocialHandleForm.displayName.trim()) {
+                    showMessage('顯示名稱為必填項目', 'error');
+                    return;
+                }
                 try {
                     const token = localStorage.getItem('jwt_token');
                     const res = await fetch(`/api/social/admin/handles/${handleId}`, {
@@ -3610,6 +3714,32 @@
                     }
                 } catch (error) {
                     showMessage('錯誤: ' + error.message, 'error');
+                }
+            };
+
+            const handleToggleSocialHandleActive = async (handleId, currentActive) => {
+                setTogglingHandleId(handleId);
+                try {
+                    const token = localStorage.getItem('jwt_token');
+                    const res = await fetch(`/api/social/admin/handles/${handleId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ isActive: !currentActive })
+                    });
+                    if (res.ok) {
+                        setSocialHandles(prev => prev.map(h => h._id === handleId ? { ...h, isActive: !currentActive } : h));
+                        showMessage(currentActive ? '已停用此帳號' : '已啟用此帳號', 'success');
+                    } else {
+                        const data = await res.json();
+                        showMessage(data.message || '更新失敗', 'error');
+                    }
+                } catch (error) {
+                    showMessage('錯誤: ' + error.message, 'error');
+                } finally {
+                    setTogglingHandleId(null);
                 }
             };
 
@@ -3913,8 +4043,45 @@
                                 <h2>社交媒體帳號管理</h2>
                             </div>
                             <p style={{ color: 'var(--text-light)', marginBottom: '1rem' }}>
-                                管理要追蹤的社交媒體帳號（YouTube、X、Instagram、Threads）
+                                管理要追蹤的社交媒體帳號（YouTube、X、Instagram、Threads、Facebook）
                             </p>
+
+                            <div style={{ padding: '1rem', background: 'var(--bg)', borderRadius: '8px', marginBottom: '1rem' }}>
+                                <h3 style={{ marginBottom: '0.5rem' }}>⏰ 自動抓取排程</h3>
+                                <p style={{ fontSize: '0.875rem', color: 'var(--text-light)', marginBottom: '1rem' }}>
+                                    勾選要執行自動抓取的小時（每日在該小時會自動抓取所有社交媒體動態，以伺服器當地時間為準）
+                                </p>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
+                                    {Array.from({ length: 24 }, (_, i) => (
+                                        <label key={i} style={{
+                                            display: 'flex', alignItems: 'center', gap: '0.35rem',
+                                            padding: '0.35rem 0.6rem', background: autoFetchScheduleHours[i] ? 'var(--primary)' : 'var(--card-bg)',
+                                            color: autoFetchScheduleHours[i] ? 'white' : 'var(--text)',
+                                            borderRadius: '6px', border: '1px solid var(--border)',
+                                            cursor: 'pointer', fontSize: '0.8125rem'
+                                        }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={autoFetchScheduleHours[i]}
+                                                onChange={(e) => {
+                                                    const next = [...autoFetchScheduleHours];
+                                                    next[i] = e.target.checked;
+                                                    setAutoFetchScheduleHours(next);
+                                                }}
+                                                style={{ margin: 0 }}
+                                            />
+                                            {i.toString().padStart(2, '0')}:00
+                                        </label>
+                                    ))}
+                                </div>
+                                <button
+                                    className="btn btn-primary btn-sm"
+                                    onClick={handleSaveAutoFetchSchedule}
+                                    disabled={savingSchedule}
+                                >
+                                    {savingSchedule ? '儲存中…' : '儲存排程'}
+                                </button>
+                            </div>
 
                             <div style={{ padding: '1rem', background: 'var(--bg)', borderRadius: '8px', marginBottom: '1rem' }}>
                                 <h3 style={{ marginBottom: '1rem' }}>新增社交媒體帳號</h3>
@@ -3928,20 +4095,22 @@
                                         <option value="x">X (Twitter)</option>
                                         <option value="instagram">Instagram</option>
                                         <option value="threads">Threads</option>
+                                        <option value="facebook">Facebook</option>
                                     </select>
                                     <input
                                         type="text"
                                         className="form-control"
-                                        placeholder="帳號（例如：user@instance.social、@youtube_channel、@twitter_handle、@instagram_handle 或 @threads_handle）"
+                                        placeholder="帳號（例如：@username、YouTube/X/IG/Threads 帳號，或 Facebook 個人/粉絲頁 URL 或 pageId）"
                                         value={socialHandleForm.handle}
                                         onChange={(e) => setSocialHandleForm({ ...socialHandleForm, handle: e.target.value })}
                                     />
                                     <input
                                         type="text"
                                         className="form-control"
-                                        placeholder="顯示名稱（選填）"
+                                        placeholder="顯示名稱（必填）"
                                         value={socialHandleForm.displayName}
                                         onChange={(e) => setSocialHandleForm({ ...socialHandleForm, displayName: e.target.value })}
+                                        required
                                     />
                                     <input
                                         type="text"
@@ -3950,14 +4119,6 @@
                                         value={socialHandleForm.remark}
                                         onChange={(e) => setSocialHandleForm({ ...socialHandleForm, remark: e.target.value })}
                                     />
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                        <input
-                                            type="checkbox"
-                                            checked={socialHandleForm.isActive}
-                                            onChange={(e) => setSocialHandleForm({ ...socialHandleForm, isActive: e.target.checked })}
-                                        />
-                                        啟用
-                                    </label>
                                 </div>
                                 <button className="btn btn-primary" style={{ marginTop: '1rem' }} onClick={handleCreateSocialHandle}>
                                     新增帳號
@@ -3991,9 +4152,10 @@
                                                         <input
                                                             type="text"
                                                             className="form-control"
-                                                            placeholder="顯示名稱（選填）"
+                                                            placeholder="顯示名稱（必填）"
                                                             value={editSocialHandleForm.displayName}
                                                             onChange={(e) => setEditSocialHandleForm({ ...editSocialHandleForm, displayName: e.target.value })}
+                                                            required
                                                         />
                                                     </div>
                                                     <div>
@@ -4031,14 +4193,14 @@
                                                 </div>
                                             </div>
                                         ) : (
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
                                                 <div>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                                         <span>{handle.platform === 'x' ? '𝕏' : 
                                                                 handle.platform === 'instagram' ? '📷' : 
-                                                                handle.platform === 'threads' ? '🧵' : '▶️'}</span>
+                                                                handle.platform === 'threads' ? '🧵' : 
+                                                                handle.platform === 'facebook' ? '📘' : '▶️'}</span>
                                                         <strong>{handle.displayName || handle.handle}</strong>
-                                                        {!handle.isActive && <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>(已停用)</span>}
                                                     </div>
                                                     <div style={{ fontSize: '0.875rem', color: 'var(--text-light)', marginTop: '0.25rem' }}>
                                                         @{handle.handle}
@@ -4050,11 +4212,32 @@
                                                         </div>
                                                     )}
                                                 </div>
-                                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                                     <button
+                                                        type="button"
+                                                        className="btn btn-sm"
+                                                        style={{
+                                                            minWidth: '4rem',
+                                                            opacity: togglingHandleId === handle._id ? 0.7 : 1,
+                                                            background: handle.isActive ? 'var(--success, #28a745)' : 'var(--text-light, #6c757d)',
+                                                            color: '#fff',
+                                                            border: 'none',
+                                                            borderRadius: '6px',
+                                                            padding: '0.35rem 0.6rem',
+                                                            fontSize: '0.8rem',
+                                                            cursor: togglingHandleId === handle._id ? 'wait' : 'pointer'
+                                                        }}
+                                                        onClick={(e) => { e.preventDefault(); handleToggleSocialHandleActive(handle._id, handle.isActive); }}
+                                                        disabled={togglingHandleId === handle._id}
+                                                        title={handle.isActive ? '點擊停用' : '點擊啟用'}
+                                                    >
+                                                        {togglingHandleId === handle._id ? '…' : (handle.isActive ? '啟用' : '停用')}
+                                                    </button>
+                                                    <button
+                                                        type="button"
                                                         className="btn btn-outline btn-sm"
-                                                        onClick={() => handleFetchSocialHandle(handle._id)}
-                                                        title="立即獲取動態"
+                                                        onClick={(e) => { e.preventDefault(); handleFetchSocialHandle(handle._id); }}
+                                                        title="立即獲取動態（僅此帳號）"
                                                     >
                                                         🔄 獲取
                                                     </button>

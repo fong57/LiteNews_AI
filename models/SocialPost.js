@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const socialPostSchema = new mongoose.Schema({
   platform: {
     type: String,
-    enum: ['youtube', 'x', 'instagram', 'threads'],
+    enum: ['youtube', 'x', 'instagram', 'threads', 'facebook'],
     required: true
   },
   handleId: {

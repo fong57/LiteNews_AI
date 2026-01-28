@@ -48,6 +48,40 @@ async function getPosts(handle, limit = 20) {
     let nextMaxId = null;
     const maxResults = Math.min(limit, 50); // Threads API typically returns up to 50 per request
     
+    // Helper function to make API request with retry logic
+    const makeRequest = async (params, retryCount = 0) => {
+      const maxRetries = 2;
+      const retryableStatuses = [502, 503, 504]; // Bad Gateway, Service Unavailable, Gateway Timeout
+      
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          console.log(`Fetching Threads posts for handle: ${cleanHandle} from ${SOCIAVAULT_API_BASE}/threads/user-posts${attempt > 0 ? ` (retry ${attempt}/${maxRetries})` : ''}`);
+          
+          const response = await axios.get(`${SOCIAVAULT_API_BASE}/threads/user-posts`, {
+            params: params,
+            headers: {
+              'X-API-Key': apiKey,
+              'User-Agent': 'LiteNews_AI/1.0'
+            },
+            timeout: 60000
+          });
+          
+          return response;
+        } catch (error) {
+          const isRetryable = error.response && retryableStatuses.includes(error.response.status);
+          const isTimeout = error.code === 'ECONNABORTED' || error.message.includes('timeout');
+          
+          if ((isRetryable || isTimeout) && attempt < maxRetries) {
+            const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
+            console.warn(`Request failed (${error.response?.status || 'timeout'}), retrying in ${delay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          }
+          throw error;
+        }
+      }
+    };
+    
     do {
       const params = {
         handle: cleanHandle
@@ -57,16 +91,7 @@ async function getPosts(handle, limit = 20) {
         params.next_max_id = nextMaxId;
       }
       
-      console.log(`Fetching Threads posts for handle: ${cleanHandle} from ${SOCIAVAULT_API_BASE}/threads/user-posts`);
-      
-      const response = await axios.get(`${SOCIAVAULT_API_BASE}/threads/user-posts`, {
-        params: params,
-        headers: {
-          'X-API-Key': apiKey,
-          'User-Agent': 'LiteNews_AI/1.0'
-        },
-        timeout: 15000
-      });
+      const response = await makeRequest(params);
       
       // Check different possible response structures
       // According to SociaVault API docs, response structure is: { success: boolean, posts: array }
@@ -176,6 +201,8 @@ async function getPosts(handle, limit = 20) {
         throw new Error(`SociaVault API authentication failed. Please check your SOCIAVAULT_API_KEY.`);
       } else if (status === 402) {
         throw new Error(`SociaVault API: Insufficient credits. Please check your account balance.`);
+      } else if (status === 502 || status === 503 || status === 504) {
+        throw new Error(`SociaVault API temporarily unavailable (${status}): ${errorMsg}. The service may be experiencing issues. Please try again later.`);
       } else {
         throw new Error(`SociaVault API error (${status}): ${errorMsg}`);
       }

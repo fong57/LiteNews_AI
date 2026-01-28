@@ -5,6 +5,7 @@ const { protect, adminOnly } = require('../middleware/auth');
 const FeedSource = require('../models/FeedSource');
 const User = require('../models/User');
 const Category = require('../models/Category');
+const SocialFetchSchedule = require('../models/SocialFetchSchedule');
 
 router.use(protect);
 router.use(adminOnly); // All admin routes require admin role
@@ -187,6 +188,47 @@ router.delete('/categories/:categoryId', async (req, res) => {
     res.json({
       status: 'success',
       message: 'Category deleted'
+    });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: error.message });
+  }
+});
+
+// ==================== AUTO SOCIAL FETCH SCHEDULE ====================
+
+// Get auto social fetch schedule (24 hours, admin)
+router.get('/social-fetch-schedule', async (req, res) => {
+  try {
+    const schedule = await SocialFetchSchedule.getSchedule();
+    res.json({
+      status: 'success',
+      data: {
+        scheduleHours: schedule.scheduleHours,
+        lastRunAt: schedule.lastRunAt
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: error.message });
+  }
+});
+
+// Update auto social fetch schedule (admin)
+router.put('/social-fetch-schedule', async (req, res) => {
+  try {
+    const { scheduleHours } = req.body;
+    if (!Array.isArray(scheduleHours) || scheduleHours.length !== 24) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'scheduleHours must be an array of 24 booleans (hours 0-23)'
+      });
+    }
+    const schedule = await SocialFetchSchedule.getSchedule();
+    schedule.scheduleHours = scheduleHours.map(Boolean);
+    await schedule.save();
+    res.json({
+      status: 'success',
+      message: 'Schedule updated',
+      data: { scheduleHours: schedule.scheduleHours }
     });
   } catch (error) {
     res.status(500).json({ status: 'error', message: error.message });
