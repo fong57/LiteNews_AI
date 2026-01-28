@@ -5,14 +5,57 @@ const { protect, adminOnly } = require('../middleware/auth');
 const { fetchFeedsForAllHandles, fetchFeedForHandle } = require('../services/socialFeedFetcher');
 const SocialHandle = require('../models/SocialHandle');
 const SocialPost = require('../models/SocialPost');
+const User = require('../models/User');
+const { findUserByIdOrName } = require('../utils/userHelper');
 
 router.use(protect);
 
-// Get all active social handles
+// Get all active social handles (respects user's display order preference)
 router.get('/handles', async (req, res) => {
   try {
-    const handles = await SocialHandle.find({ isActive: true })
+    // Get all active handles
+    const allHandles = await SocialHandle.find({ isActive: true })
       .sort({ platform: 1, handle: 1 });
+    
+    // Get user's preferred order
+    let handles = allHandles;
+    try {
+      const userId = req.user.userId;
+      if (userId) {
+        const user = await findUserByIdOrName(userId);
+        if (user && user.preferences && user.preferences.socialHandlesOrder) {
+          const userOrder = user.preferences.socialHandlesOrder.map(id => id.toString());
+          
+          // Create a map for quick lookup
+          const handleMap = new Map(allHandles.map(h => [h._id.toString(), h]));
+          
+          // Sort handles according to user's order
+          const orderedHandles = [];
+          const unorderedHandles = [];
+          
+          // First, add handles in user's preferred order
+          for (const handleId of userOrder) {
+            if (handleMap.has(handleId)) {
+              orderedHandles.push(handleMap.get(handleId));
+              handleMap.delete(handleId);
+            }
+          }
+          
+          // Then, add remaining handles that weren't in user's order
+          for (const handle of allHandles) {
+            if (!userOrder.includes(handle._id.toString())) {
+              unorderedHandles.push(handle);
+            }
+          }
+          
+          // Combine: ordered handles first, then unordered handles
+          handles = [...orderedHandles, ...unorderedHandles];
+        }
+      }
+    } catch (userError) {
+      // If there's an error getting user preferences, fall back to default order
+      console.error('Error getting user preferences:', userError);
+    }
     
     res.json({
       status: 'success',
@@ -117,10 +160,10 @@ router.post('/admin/handles', adminOnly, async (req, res) => {
       });
     }
     
-    if (!['youtube', 'x', 'instagram'].includes(platform)) {
+    if (!['youtube', 'x', 'instagram', 'threads'].includes(platform)) {
       return res.status(400).json({
         status: 'error',
-        message: 'Platform must be "youtube", "x", or "instagram"'
+        message: 'Platform must be "youtube", "x", "instagram", or "threads"'
       });
     }
     

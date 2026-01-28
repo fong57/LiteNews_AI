@@ -4,6 +4,7 @@ const SocialPost = require('../../models/SocialPost');
 const { fetchYouTubeFeed } = require('./youtube');
 const { fetchXFeed } = require('./x');
 const { fetchInstagramFeed } = require('./instagram');
+const { fetchThreadsFeed } = require('./threads');
 
 /**
  * Fetch feeds for all active social handles
@@ -28,6 +29,8 @@ async function fetchFeedsForAllHandles() {
         feedData = await fetchXFeed(handle.handle, 20);
       } else if (handle.platform === 'instagram') {
         feedData = await fetchInstagramFeed(handle.handle, 20);
+      } else if (handle.platform === 'threads') {
+        feedData = await fetchThreadsFeed(handle.handle, 20);
       } else {
         throw new Error(`Unsupported platform: ${handle.platform}`);
       }
@@ -120,6 +123,8 @@ async function fetchFeedForHandle(handleId) {
     feedData = await fetchXFeed(handle.handle, 20);
   } else if (handle.platform === 'instagram') {
     feedData = await fetchInstagramFeed(handle.handle, 20);
+  } else if (handle.platform === 'threads') {
+    feedData = await fetchThreadsFeed(handle.handle, 20);
   } else {
     throw new Error(`Unsupported platform: ${handle.platform}`);
   }

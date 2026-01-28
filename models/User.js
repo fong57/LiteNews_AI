@@ -32,7 +32,9 @@ const userSchema = new mongoose.Schema({
       priority: { type: Number, default: 5, min: 1, max: 10 }
     }],
     // Note: categories moved to separate Category model (admin-managed)
-    defaultTimeframe: { type: String, default: '24h', enum: ['24h', '7d', '30d'] }
+    defaultTimeframe: { type: String, default: '24h', enum: ['24h', '7d', '30d'] },
+    // User's preferred display order for social handles (array of handle IDs)
+    socialHandlesOrder: [{ type: mongoose.Schema.Types.ObjectId, ref: 'SocialHandle' }]
   },
   topicPreferences: {
     likedTopics: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Topic' }],

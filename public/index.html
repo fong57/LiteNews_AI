@@ -983,7 +983,8 @@
             const [preferences, setPreferences] = useState({
                 sources: [],
                 categories: [],
-                defaultTimeframe: '24h'
+                defaultTimeframe: '24h',
+                socialHandlesOrder: []
             });
 
             // Load drafts from localStorage on mount
@@ -2068,7 +2069,8 @@
         function SocialMediaHandleCard({ handle, feed, timeframe = '24h', sort = 'updatedAt', onAddToDraft, drafts }) {
             const allPosts = feed?.posts || [];
             const platformBadge = handle.platform === 'x' ? '𝕏' : 
-                                   handle.platform === 'instagram' ? '📷' : '▶️';
+                                   handle.platform === 'instagram' ? '📷' : 
+                                   handle.platform === 'threads' ? '🧵' : '▶️';
 
             // Parse timeframe and calculate cutoff date
             const getTimeframeCutoff = (timeframe) => {
@@ -2933,7 +2935,8 @@
                                             <div className="social-feed-handle">
                                                 <span style={{ fontSize: '1.2rem' }}>
                                                     {post.platform === 'x' ? '𝕏' : 
-                                                     post.platform === 'instagram' ? '📷' : '▶️'}
+                                                     post.platform === 'instagram' ? '📷' : 
+                                                     post.platform === 'threads' ? '🧵' : '▶️'}
                                                 </span>
                                                 <div className="social-feed-handle-info">
                                                     <div className="social-feed-handle-name">
@@ -3023,6 +3026,8 @@
             const [availableSources, setAvailableSources] = useState([]);
             const [defaultTimeframe, setDefaultTimeframe] = useState(preferences.defaultTimeframe || '24h');
             const [newSource, setNewSource] = useState({ type: 'rss', url: '', name: '', priority: 5 });
+            const [socialHandles, setSocialHandles] = useState([]);
+            const [socialHandlesOrder, setSocialHandlesOrder] = useState(preferences.socialHandlesOrder || []);
             const isAdmin = userRole === 'ADMIN';
 
             // Helper to get category display name
@@ -3051,6 +3056,45 @@
                 loadAvailableSources();
             }, []);
 
+            // Load social handles on mount
+            useEffect(() => {
+                const loadSocialHandles = async () => {
+                    try {
+                        const token = localStorage.getItem('jwt_token');
+                        const res = await fetch('/api/social/handles', {
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        if (res.ok) {
+                            const data = await res.json();
+                            const handles = data.data || [];
+                            setSocialHandles(handles);
+                            
+                            // Initialize order if not set, using current handle order from API
+                            // The API already returns handles in user's preferred order (if set)
+                            setSocialHandlesOrder(prevOrder => {
+                                if (prevOrder.length === 0 && handles.length > 0) {
+                                    // Use the order from API (which respects user preference)
+                                    return handles.map(h => h._id);
+                                } else if (prevOrder.length > 0) {
+                                    // Ensure all current handles are in the order (add any new ones at the end)
+                                    const existingIds = new Set(prevOrder.map(id => id.toString()));
+                                    const newHandles = handles
+                                        .filter(h => !existingIds.has(h._id.toString()))
+                                        .map(h => h._id);
+                                    if (newHandles.length > 0) {
+                                        return [...prevOrder, ...newHandles];
+                                    }
+                                }
+                                return prevOrder;
+                            });
+                        }
+                    } catch (error) {
+                        console.error('Failed to load social handles:', error);
+                    }
+                };
+                loadSocialHandles();
+            }, []);
+
             const handleSave = async () => {
                 const token = localStorage.getItem('jwt_token');
                 
@@ -3077,7 +3121,19 @@
                     body: JSON.stringify({ timeframe: defaultTimeframe })
                 });
 
-                onSave({ sources, categories, defaultTimeframe });
+                // Update social handles order
+                if (socialHandlesOrder.length > 0) {
+                    await fetch('/api/preferences/social-handles-order', {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ handleIds: socialHandlesOrder })
+                    });
+                }
+
+                onSave({ sources, categories, defaultTimeframe, socialHandlesOrder });
             };
 
             const addSource = () => {
@@ -3089,6 +3145,33 @@
 
             const removeSource = (index) => {
                 setSources(sources.filter((_, i) => i !== index));
+            };
+
+            // Social handles order management
+            const moveHandleUp = (index) => {
+                if (index > 0) {
+                    const newOrder = [...socialHandlesOrder];
+                    [newOrder[index - 1], newOrder[index]] = [newOrder[index], newOrder[index - 1]];
+                    setSocialHandlesOrder(newOrder);
+                }
+            };
+
+            const moveHandleDown = (index) => {
+                if (index < socialHandlesOrder.length - 1) {
+                    const newOrder = [...socialHandlesOrder];
+                    [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
+                    setSocialHandlesOrder(newOrder);
+                }
+            };
+
+            // Get ordered handles for display
+            const getOrderedHandles = () => {
+                const handleMap = new Map(socialHandles.map(h => [h._id, h]));
+                const ordered = socialHandlesOrder
+                    .map(id => handleMap.get(id))
+                    .filter(Boolean);
+                const unordered = socialHandles.filter(h => !socialHandlesOrder.includes(h._id));
+                return [...ordered, ...unordered];
             };
 
             return (
@@ -3179,6 +3262,78 @@
                             )}
                         </div>
 
+                        <div className="form-group">
+                            <label>
+                                社交媒體帳號顯示順序
+                                <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginLeft: '0.5rem' }}>
+                                    (僅管理員可新增帳號)
+                                </span>
+                            </label>
+                            <p style={{ fontSize: '0.8125rem', color: 'var(--text-light)', marginBottom: '0.5rem' }}>
+                                調整社交媒體卡片在「社交主題」頁面的顯示順序。
+                            </p>
+                            {getOrderedHandles().map((handle, index) => {
+                                const orderIndex = socialHandlesOrder.indexOf(handle._id);
+                                const isInOrder = orderIndex !== -1;
+                                return (
+                                    <div key={handle._id} style={{
+                                        padding: '0.75rem',
+                                        background: 'var(--bg)',
+                                        borderRadius: '6px',
+                                        marginBottom: '0.5rem',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        gap: '1rem'
+                                    }}>
+                                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            <span style={{ 
+                                                fontSize: '0.75rem', 
+                                                color: 'var(--text-light)',
+                                                minWidth: '2rem',
+                                                textAlign: 'center'
+                                            }}>
+                                                {isInOrder ? `#${orderIndex + 1}` : '未排序'}
+                                            </span>
+                                            <div>
+                                                <strong>{handle.displayName || handle.handle}</strong>
+                                                <div style={{ fontSize: '0.8125rem', color: 'var(--text-light)' }}>
+                                                    @{handle.handle} ({handle.platform})
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {isInOrder && (
+                                            <div style={{ display: 'flex', gap: '0.25rem' }}>
+                                                <button
+                                                    className="btn btn-sm btn-outline"
+                                                    onClick={() => moveHandleUp(orderIndex)}
+                                                    disabled={orderIndex === 0}
+                                                    title="上移"
+                                                    style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                                                >
+                                                    ↑
+                                                </button>
+                                                <button
+                                                    className="btn btn-sm btn-outline"
+                                                    onClick={() => moveHandleDown(orderIndex)}
+                                                    disabled={orderIndex === socialHandlesOrder.length - 1}
+                                                    title="下移"
+                                                    style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                                                >
+                                                    ↓
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                            {socialHandles.length === 0 && (
+                                <p style={{ color: 'var(--text-light)', fontSize: '0.875rem' }}>
+                                    沒有可用的社交媒體帳號。管理員需要先新增帳號。
+                                </p>
+                            )}
+                        </div>
+
                         <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
                             <button className="btn btn-outline" onClick={onClose}>取消</button>
                             <button className="btn btn-primary" onClick={handleSave}>儲存</button>
@@ -3200,6 +3355,8 @@
             const [userForm, setUserForm] = useState({ name: '', password: '', role: 'USER', email: '' });
             const [sourceForm, setSourceForm] = useState({ name: '', type: 'rss', url: '', remark: '' });
             const [socialHandleForm, setSocialHandleForm] = useState({ platform: 'youtube', handle: '', instanceBaseUrl: '', displayName: '', remark: '', isActive: true });
+            const [editingSocialHandle, setEditingSocialHandle] = useState(null);
+            const [editSocialHandleForm, setEditSocialHandleForm] = useState({ handle: '', displayName: '', remark: '', isActive: true });
 
             useEffect(() => {
                 loadData();
@@ -3409,6 +3566,47 @@
                     } else {
                         const data = await res.json();
                         showMessage(data.message || '獲取失敗', 'error');
+                    }
+                } catch (error) {
+                    showMessage('錯誤: ' + error.message, 'error');
+                }
+            };
+
+            const handleEditSocialHandle = (handle) => {
+                setEditingSocialHandle(handle._id);
+                setEditSocialHandleForm({
+                    handle: handle.handle || '',
+                    displayName: handle.displayName || '',
+                    remark: handle.remark || '',
+                    isActive: handle.isActive !== undefined ? handle.isActive : true
+                });
+            };
+
+            const handleCancelEdit = () => {
+                setEditingSocialHandle(null);
+                setEditSocialHandleForm({ handle: '', displayName: '', remark: '', isActive: true });
+            };
+
+            const handleUpdateSocialHandle = async (handleId) => {
+                try {
+                    const token = localStorage.getItem('jwt_token');
+                    const res = await fetch(`/api/social/admin/handles/${handleId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(editSocialHandleForm)
+                    });
+
+                    if (res.ok) {
+                        showMessage('社交媒體帳號更新成功', 'success');
+                        setEditingSocialHandle(null);
+                        setEditSocialHandleForm({ handle: '', displayName: '', remark: '', isActive: true });
+                        loadData();
+                    } else {
+                        const data = await res.json();
+                        showMessage(data.message || '更新失敗', 'error');
                     }
                 } catch (error) {
                     showMessage('錯誤: ' + error.message, 'error');
@@ -3715,7 +3913,7 @@
                                 <h2>社交媒體帳號管理</h2>
                             </div>
                             <p style={{ color: 'var(--text-light)', marginBottom: '1rem' }}>
-                                管理要追蹤的社交媒體帳號（YouTube、X、Instagram）
+                                管理要追蹤的社交媒體帳號（YouTube、X、Instagram、Threads）
                             </p>
 
                             <div style={{ padding: '1rem', background: 'var(--bg)', borderRadius: '8px', marginBottom: '1rem' }}>
@@ -3729,11 +3927,12 @@
                                         <option value="youtube">YouTube</option>
                                         <option value="x">X (Twitter)</option>
                                         <option value="instagram">Instagram</option>
+                                        <option value="threads">Threads</option>
                                     </select>
                                     <input
                                         type="text"
                                         className="form-control"
-                                        placeholder="帳號（例如：user@instance.social、@youtube_channel、@twitter_handle 或 @instagram_handle）"
+                                        placeholder="帳號（例如：user@instance.social、@youtube_channel、@twitter_handle、@instagram_handle 或 @threads_handle）"
                                         value={socialHandleForm.handle}
                                         onChange={(e) => setSocialHandleForm({ ...socialHandleForm, handle: e.target.value })}
                                     />
@@ -3771,43 +3970,109 @@
                                         padding: '1rem',
                                         background: 'var(--card-bg)',
                                         borderRadius: '8px',
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
                                         border: '1px solid var(--border)'
                                     }}>
-                                        <div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                <span>{handle.platform === 'x' ? '𝕏' : 
-                                                        handle.platform === 'instagram' ? '📷' : '▶️'}</span>
-                                                <strong>{handle.displayName || handle.handle}</strong>
-                                                {!handle.isActive && <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>(已停用)</span>}
-                                            </div>
-                                            <div style={{ fontSize: '0.875rem', color: 'var(--text-light)', marginTop: '0.25rem' }}>
-                                                @{handle.handle}
-                                                {handle.remark && <span> • {handle.remark}</span>}
-                                            </div>
-                                            {handle.lastFetchedAt && (
-                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: '0.25rem' }}>
-                                                    最後更新: {new Date(handle.lastFetchedAt).toLocaleString('zh-TW')}
+                                        {editingSocialHandle === handle._id ? (
+                                            <div>
+                                                <h4 style={{ marginBottom: '1rem' }}>編輯社交媒體帳號</h4>
+                                                <div style={{ display: 'grid', gap: '1rem' }}>
+                                                    <div>
+                                                        <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>帳號</label>
+                                                        <input
+                                                            type="text"
+                                                            className="form-control"
+                                                            placeholder="帳號"
+                                                            value={editSocialHandleForm.handle}
+                                                            onChange={(e) => setEditSocialHandleForm({ ...editSocialHandleForm, handle: e.target.value })}
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>顯示名稱</label>
+                                                        <input
+                                                            type="text"
+                                                            className="form-control"
+                                                            placeholder="顯示名稱（選填）"
+                                                            value={editSocialHandleForm.displayName}
+                                                            onChange={(e) => setEditSocialHandleForm({ ...editSocialHandleForm, displayName: e.target.value })}
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>備註</label>
+                                                        <input
+                                                            type="text"
+                                                            className="form-control"
+                                                            placeholder="備註（選填）"
+                                                            value={editSocialHandleForm.remark}
+                                                            onChange={(e) => setEditSocialHandleForm({ ...editSocialHandleForm, remark: e.target.value })}
+                                                        />
+                                                    </div>
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={editSocialHandleForm.isActive}
+                                                            onChange={(e) => setEditSocialHandleForm({ ...editSocialHandleForm, isActive: e.target.checked })}
+                                                        />
+                                                        啟用
+                                                    </label>
                                                 </div>
-                                            )}
-                                        </div>
-                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                            <button
-                                                className="btn btn-outline btn-sm"
-                                                onClick={() => handleFetchSocialHandle(handle._id)}
-                                                title="立即獲取動態"
-                                            >
-                                                🔄 獲取
-                                            </button>
-                                            <button
-                                                className="btn btn-danger btn-sm"
-                                                onClick={() => handleDeleteSocialHandle(handle._id)}
-                                            >
-                                                刪除
-                                            </button>
-                                        </div>
+                                                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
+                                                    <button
+                                                        className="btn btn-outline btn-sm"
+                                                        onClick={handleCancelEdit}
+                                                    >
+                                                        取消
+                                                    </button>
+                                                    <button
+                                                        className="btn btn-primary btn-sm"
+                                                        onClick={() => handleUpdateSocialHandle(handle._id)}
+                                                    >
+                                                        儲存
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                        <span>{handle.platform === 'x' ? '𝕏' : 
+                                                                handle.platform === 'instagram' ? '📷' : 
+                                                                handle.platform === 'threads' ? '🧵' : '▶️'}</span>
+                                                        <strong>{handle.displayName || handle.handle}</strong>
+                                                        {!handle.isActive && <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>(已停用)</span>}
+                                                    </div>
+                                                    <div style={{ fontSize: '0.875rem', color: 'var(--text-light)', marginTop: '0.25rem' }}>
+                                                        @{handle.handle}
+                                                        {handle.remark && <span> • {handle.remark}</span>}
+                                                    </div>
+                                                    {handle.lastFetchedAt && (
+                                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: '0.25rem' }}>
+                                                            最後更新: {new Date(handle.lastFetchedAt).toLocaleString('zh-TW')}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                    <button
+                                                        className="btn btn-outline btn-sm"
+                                                        onClick={() => handleFetchSocialHandle(handle._id)}
+                                                        title="立即獲取動態"
+                                                    >
+                                                        🔄 獲取
+                                                    </button>
+                                                    <button
+                                                        className="btn btn-outline btn-sm"
+                                                        onClick={() => handleEditSocialHandle(handle)}
+                                                    >
+                                                        編輯
+                                                    </button>
+                                                    <button
+                                                        className="btn btn-danger btn-sm"
+                                                        onClick={() => handleDeleteSocialHandle(handle._id)}
+                                                    >
+                                                        刪除
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                                 {socialHandles.length === 0 && (

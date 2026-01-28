@@ -31,7 +31,8 @@ router.get('/', async (req, res) => {
       data: {
         sources: user.preferences?.sources || [],
         categories: categories, // Now from Category model with name and displayName
-        defaultTimeframe: user.preferences?.defaultTimeframe || '24h'
+        defaultTimeframe: user.preferences?.defaultTimeframe || '24h',
+        socialHandlesOrder: user.preferences?.socialHandlesOrder || []
       }
     });
   } catch (error) {
@@ -112,6 +113,40 @@ router.put('/timeframe', async (req, res) => {
     await user.save();
     
     res.json({ status: 'success', message: 'Timeframe updated', data: user.preferences.defaultTimeframe });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: error.message });
+  }
+});
+
+// Update social handles display order (users can set their own order)
+router.put('/social-handles-order', async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { handleIds } = req.body; // Array of handle IDs in desired order
+    
+    if (!Array.isArray(handleIds)) {
+      return res.status(400).json({ status: 'error', message: 'handleIds must be an array' });
+    }
+    
+    const user = await findUserByIdOrName(userId);
+    if (!user) {
+      return res.status(404).json({ status: 'error', message: 'User not found' });
+    }
+    
+    if (!user.preferences) user.preferences = {};
+    
+    // Validate that all handle IDs are valid ObjectIds
+    const mongoose = require('mongoose');
+    const validHandleIds = handleIds.filter(id => mongoose.Types.ObjectId.isValid(id));
+    
+    user.preferences.socialHandlesOrder = validHandleIds.map(id => new mongoose.Types.ObjectId(id));
+    await user.save();
+    
+    res.json({ 
+      status: 'success', 
+      message: 'Social handles order updated', 
+      data: user.preferences.socialHandlesOrder 
+    });
   } catch (error) {
     res.status(500).json({ status: 'error', message: error.message });
   }
