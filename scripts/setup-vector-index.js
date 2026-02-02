@@ -5,11 +5,25 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
 
-const EMBEDDING_DIMENSIONS = 384; // all-MiniLM-L6-v2 produces 384-dimensional embeddings
+// Must match embedding model: BGE small/base = 384/768, BGE large = 1024, MULTILINGUAL_E5_LARGE = 1024
+function getEmbeddingDimensions() {
+  const name = (process.env.EMBEDDING_MODEL || 'MULTILINGUAL_E5_LARGE').toUpperCase();
+  const dimMap = {
+    BGE_SMALL_EN: 384, BGE_BASE_EN: 768, BGE_LARGE_EN: 1024,
+    BGE_SMALL_EN_V1_5: 384, BGE_BASE_EN_V1_5: 768, BGE_LARGE_EN_V1_5: 1024,
+    BGE_SMALL_ZH: 512,
+    MLE5_LARGE: 1024, MULTILINGUAL_E5_LARGE: 1024
+  };
+  return dimMap[name] ?? 1024;
+}
+
+const EMBEDDING_DIMENSIONS = getEmbeddingDimensions();
 const INDEX_NAME = 'news_embedding_index';
 
 async function setupVectorIndex() {
+  const modelName = (process.env.EMBEDDING_MODEL || 'MULTILINGUAL_E5_LARGE').toUpperCase();
   console.log('🔧 MongoDB Atlas Vector Search Index Setup\n');
+  console.log(`   EMBEDDING_MODEL: ${modelName} → dimensions: ${EMBEDDING_DIMENSIONS}\n`);
 
   // Connect to MongoDB
   const mongoUri = process.env.MONGODB_URI;
@@ -35,6 +49,8 @@ async function setupVectorIndex() {
       if (existingIndex) {
         console.log(`✅ Vector search index "${INDEX_NAME}" already exists`);
         console.log('   Status:', existingIndex.status || 'active');
+        console.log(`   Configured dimension (from EMBEDDING_MODEL): ${EMBEDDING_DIMENSIONS}`);
+        console.log('   To recreate with a different dimension: npm run drop-vector-index && npm run setup-vector-index');
         await mongoose.disconnect();
         return;
       }
@@ -44,7 +60,7 @@ async function setupVectorIndex() {
     }
 
     // Create the vector search index
-    console.log(`\n🚀 Creating vector search index "${INDEX_NAME}"...`);
+    console.log(`\n🚀 Creating vector search index "${INDEX_NAME}" (dimensions: ${EMBEDDING_DIMENSIONS})...`);
 
     const indexDefinition = {
       name: INDEX_NAME,
@@ -71,12 +87,13 @@ async function setupVectorIndex() {
 
     try {
       await collection.createSearchIndex(indexDefinition);
-      console.log(`✅ Vector search index "${INDEX_NAME}" created successfully!`);
+      console.log(`✅ Vector search index "${INDEX_NAME}" created successfully! (dimensions: ${EMBEDDING_DIMENSIONS})`);
       console.log('\n⏳ Note: Index may take a few minutes to become active.');
       console.log('   Check status in MongoDB Atlas UI: Database > Search > Indexes');
     } catch (error) {
       if (error.message.includes('already exists')) {
         console.log(`✅ Vector search index "${INDEX_NAME}" already exists`);
+        console.log(`   Configured dimension (from EMBEDDING_MODEL): ${EMBEDDING_DIMENSIONS}`);
       } else {
         throw error;
       }

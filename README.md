@@ -110,9 +110,10 @@ LiteNews AI is a full-stack application that:
    ```bash
    npm run setup-vector-index
    ```
-   This creates the required vector search index for semantic clustering.
+   This creates the required vector search index for semantic clustering. The script logs the **embedding dimension** (e.g. 1024 for `MULTILINGUAL_E5_LARGE`) so you know what the index uses.
    
    > If automatic setup fails, see [Manual Vector Index Setup](#manual-vector-index-setup) below.
+   > To **recreate** the index (e.g. after changing `EMBEDDING_MODEL`), see [Recreating the Vector Index](#recreating-the-vector-index).
 
 6. **Start the server**
    ```bash
@@ -137,11 +138,28 @@ LiteNews AI is a full-stack application that:
 | `LLM_MODE` | LLM provider: `perplexity` or `mock` | `mock` |
 | `PERPLEXITY_API_KEY` | Perplexity AI API key | Required if `LLM_MODE=perplexity` |
 | `PERPLEXITY_MODEL` | Perplexity model name | `llama-3.1-sonar-small-128k-online` |
-| `EMBEDDING_MODEL` | FastEmbed model name | `BGE_SMALL_EN` |
-| `CLUSTERING_THRESHOLD` | Similarity threshold (0.0-1.0) | `0.65` |
+| `EMBEDDING_MODEL` | FastEmbed model (e.g. `MULTILINGUAL_E5_LARGE`, `BGE_SMALL_EN`) | `MULTILINGUAL_E5_LARGE` |
+| `CLUSTERING_METHOD` | Algorithm: `connected_components`, `greedy_average`, `greedy_min`, `mutual_k` (run `npm run compare-clustering` to compare) | `connected_components` |
+| `CLUSTERING_THRESHOLD` | Link threshold for same-story clustering; higher = tighter topics (e.g. 0.68-0.72) | `0.68` |
 | `MIN_CLUSTER_SIZE` | Minimum items per cluster | `1` |
 | `MAX_CLUSTER_SIZE` | Maximum items per cluster | `20` |
+| `CLUSTERING_CANDIDATE_LIMIT` | Per-item similar candidates when building similarity graph | `50` |
 | `SOCIAVAULT_API_KEY` | SociaVault API key | Required for YouTube, X, Instagram, and Threads feeds |
+
+**Topic clustering:** Clustering groups same-story articles from different sources into one topic. Embeddings are generated from normalized title + capped description. If you upgrade from an older version that used raw text for embeddings, consider a one-time re-fetch of news (or re-run process after fetching) so items get re-embedded with the new logic for best clustering.
+
+#### Clustering methods (detailed config)
+
+| Method | Description | When to use | Env vars (global) | Per-method overrides (optional) |
+|--------|-------------|-------------|-------------------|----------------------------------|
+| **connected_components** | Add an edge between two items if similarity >= threshold; run union-find; each connected component becomes one topic. Transitive: if A–B and B–C link, A,B,C end up in one cluster even if A–C is below threshold. | Default. Good for same-story grouping across sources; can over-merge if threshold is too low. | `CLUSTERING_THRESHOLD`, `CLUSTERING_CANDIDATE_LIMIT`, `MIN_CLUSTER_SIZE`, `MAX_CLUSTER_SIZE` | `CLUSTERING_CONNECTED_COMPONENTS_THRESHOLD`, `CLUSTERING_CONNECTED_COMPONENTS_CANDIDATE_LIMIT` |
+| **greedy_average** | Sort items by date (newest first). For each unclustered seed, fetch similar items; add to cluster only if **average** similarity to all current members >= threshold. | Tighter than connected_components; fewer spurious merges; may miss some same-story links. | Same | `CLUSTERING_GREEDY_AVERAGE_THRESHOLD`, `CLUSTERING_GREEDY_AVERAGE_CANDIDATE_LIMIT` |
+| **greedy_min** | Same as greedy_average but require **minimum** similarity to any cluster member >= threshold (stricter). | Even tighter clusters; good when you want to avoid unrelated items in the same topic. | Same | `CLUSTERING_GREEDY_MIN_THRESHOLD`, `CLUSTERING_GREEDY_MIN_CANDIDATE_LIMIT` |
+| **mutual_k** | Add an edge only if A is in B’s top-k similar list **and** B is in A’s top-k (mutual nearest neighbors); then run connected components. | Reduces long-range spurious links; often gives tighter, more coherent clusters. | Same | `CLUSTERING_MUTUAL_K_THRESHOLD`, `CLUSTERING_MUTUAL_K_CANDIDATE_LIMIT` |
+
+- **Global vars:** `CLUSTERING_THRESHOLD` (0.0–1.0; higher = tighter topics, more clusters), `CLUSTERING_CANDIDATE_LIMIT` (per-item similar candidates), `MIN_CLUSTER_SIZE`, `MAX_CLUSTER_SIZE`. All methods use these unless overridden.
+- **Per-method overrides:** Set e.g. `CLUSTERING_MUTUAL_K_THRESHOLD=0.72` or `CLUSTERING_GREEDY_MIN_CANDIDATE_LIMIT=30` to tune only the active method. See `.env.example` for all optional keys.
+- **Getting more clusters (more singletons):** A **low** threshold (e.g. 0.50) means many pairs are considered similar, so **more** links and **fewer** clusters. To get **more** clusters (or nearly one cluster per item), **raise** the threshold (e.g. 0.72–0.80) or lower `CLUSTERING_CANDIDATE_LIMIT` (e.g. 10). With `MIN_CLUSTER_SIZE=1`, any item that does not link to others becomes its own one-entry cluster.
 
 ### Setting Up News Sources
 
@@ -319,6 +337,7 @@ LiteNews_AI/
 │   ├── generate-admin-json.js # Generate admin user JSON for import
 │   ├── init-feedsources.js  # Seed default feed sources
 │   ├── setup-vector-index.js # Create MongoDB Atlas vector search index
+│   ├── drop-vector-index.js  # Drop vector search index (before recreating with new dimension)
 │   └── test-perplexity.js   # Test Perplexity API connection
 │
 ├── .cache/                   # Cache directory (auto-created)
@@ -379,7 +398,7 @@ LLM_MODE=mock
 
 # Embedding configuration (optional)
 EMBEDDING_MODEL=BGE_SMALL_EN
-CLUSTERING_THRESHOLD=0.65
+CLUSTERING_THRESHOLD=0.68
 ```
 
 **Perplexity Models:**
@@ -396,7 +415,8 @@ The system automatically falls back to mock mode if the configured provider is u
 | `npm start` | Start production server |
 | `npm run dev_start` | Start development server with auto-reload |
 | `npm run setup` | **One-step full setup**: reset DB + admin + categories + feeds |
-| `npm run setup-vector-index` | **Create MongoDB Atlas vector search index** |
+| `npm run setup-vector-index` | **Create MongoDB Atlas vector search index** (logs dimension from `EMBEDDING_MODEL`) |
+| `npm run drop-vector-index` | **Drop** the vector search index (use before recreating with a different dimension) |
 | `npm run reset-db` | Reset database only (with confirmation prompt) |
 | `npm run reset-db -- --force` | Reset database without confirmation |
 | `npm run reset-db -- --with-admin` | Reset + create admin + seed categories + seed feeds |
@@ -405,6 +425,9 @@ The system automatically falls back to mock mode if the configured provider is u
 | `npm run init-feedsources` | Seed feed sources only (without reset) |
 | `npm run init-feedsources -- --force` | Replace existing feed sources |
 | `npm run test-perplexity` | Test Perplexity API connection |
+| `npm run compare-clustering` | Compare clustering methods on current news (no DB writes); use `--timeframe=24h` or `--limit=300` |
+
+**Comparing clustering methods:** Run `npm run compare-clustering` (or `node scripts/compare-clustering.js --timeframe=24h`) to run all four methods (connected_components, greedy_average, greedy_min, mutual_k) on the same data with in-memory similarity and print cluster counts, singletons, size distribution, and sample titles. Set `CLUSTERING_METHOD` in `.env` to the method that looks best, then run the normal fetch/process flow.
 
 **Quick Start:**
 ```bash
@@ -416,16 +439,30 @@ npm run setup-vector-index
 npm run dev_start
 ```
 
+### Recreating the Vector Index
+
+If you change `EMBEDDING_MODEL` (e.g. from BGE to `MULTILINGUAL_E5_LARGE`), the embedding dimension changes. You must **drop** the old index and **create** a new one so the index dimensions match your model.
+
+1. **Drop** the existing vector search index:
+   ```bash
+   npm run drop-vector-index
+   ```
+2. **Create** the new index (dimension is taken from `EMBEDDING_MODEL` in `.env`):
+   ```bash
+   npm run setup-vector-index
+   ```
+   The script prints the dimension (e.g. `dimensions: 1024`) so you can confirm it matches your model. Re-embed existing news (e.g. re-fetch and process) so all items have vectors of the new dimension.
+
 ## 🔍 Manual Vector Index Setup
 
-If `npm run setup-vector-index` fails, create the index manually in MongoDB Atlas:
+If `npm run setup-vector-index` fails, create the index manually in MongoDB Atlas. The **dimensions** value must match your `EMBEDDING_MODEL` (default `MULTILINGUAL_E5_LARGE` = 1024; BGE small = 384, BGE base = 768, BGE large = 1024).
 
 1. Go to [MongoDB Atlas](https://cloud.mongodb.com)
 2. Select your cluster → **Search** → **Create Search Index**
 3. Choose **JSON Editor**
 4. Select your database and the `newsitems` collection
 5. Set index name to: `news_embedding_index`
-6. Paste this definition:
+6. Paste this definition (use `dimensions: 1024` for default `MULTILINGUAL_E5_LARGE`):
 
 ```json
 {
@@ -434,7 +471,7 @@ If `npm run setup-vector-index` fails, create the index manually in MongoDB Atla
     "fields": {
       "embedding": {
         "type": "knnVector",
-        "dimensions": 384,
+        "dimensions": 1024,
         "similarity": "cosine"
       },
       "topicId": {
@@ -450,6 +487,8 @@ If `npm run setup-vector-index` fails, create the index manually in MongoDB Atla
 
 7. Click **Create Search Index**
 8. Wait for status to become **Active**
+
+To replace an existing index (e.g. to change dimensions), delete the old index in Atlas Search first, or run `npm run drop-vector-index`, then create the new index.
 
 ## 🔒 Security
 

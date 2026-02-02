@@ -6,7 +6,7 @@ const { subHours, subDays } = require('date-fns');
 const NewsItem = require('../models/NewsItem');
 const FeedSource = require('../models/FeedSource');
 const { findUserByIdOrName } = require('../utils/userHelper');
-const { generateNewsEmbedding, isAvailable: isEmbeddingAvailable, getDiagnostics } = require('./embedding');
+const { generateEmbeddings, getNewsEmbeddingText, isAvailable: isEmbeddingAvailable, getDiagnostics, initializeModel: ensureEmbeddingReady } = require('./embedding');
 
 const parser = new Parser({
   timeout: 10000,
@@ -30,136 +30,138 @@ function parseTimeframe(timeframe) {
   }
 }
 
-// Fetch RSS feed
+// Fetch RSS feed. Throws on fetch error so callers can distinguish failure from empty feed.
 async function fetchRSSFeed(url, sourceName, priority) {
-  try {
-    const feed = await parser.parseURL(url);
-    const items = [];
-    
-    for (const item of feed.items) {
-      try {
-        const pubDate = item.pubDate ? new Date(item.pubDate) : new Date();
-        
-        const newsItem = {
-          title: item.title || 'Untitled',
-          description: item.contentSnippet || item.content || '',
-          content: item.content || '',
-          url: item.link || '',
-          source: {
-            type: 'rss',
-            name: sourceName,
-            url: url,
-            priority: priority
-          },
-          publishedAt: pubDate,
-          metadata: {
-            author: item.creator || item.author || '',
-            imageUrl: item.enclosure?.url || item['media:content']?.$?.url || ''
-          }
-        };
-        
-        items.push(newsItem);
-      } catch (err) {
-        console.error(`Error processing RSS item: ${err.message}`);
-      }
+  const feed = await parser.parseURL(url);
+  const items = [];
+  for (const item of feed.items) {
+    try {
+      const pubDate = item.pubDate ? new Date(item.pubDate) : new Date();
+      const newsItem = {
+        title: item.title || 'Untitled',
+        description: item.contentSnippet || item.content || '',
+        content: item.content || '',
+        url: item.link || '',
+        source: {
+          type: 'rss',
+          name: sourceName,
+          url: url,
+          priority: priority
+        },
+        publishedAt: pubDate,
+        metadata: {
+          author: item.creator || item.author || '',
+          imageUrl: item.enclosure?.url || item['media:content']?.$?.url || ''
+        }
+      };
+      items.push(newsItem);
+    } catch (err) {
+      console.error(`Error processing RSS item: ${err.message}`);
     }
-    
-    return items;
-  } catch (error) {
-    console.error(`Error fetching RSS feed ${url}:`, error.message);
-    return [];
   }
+  return items;
 }
 
-// Fetch from web URL (scraping)
+// Fetch from web URL (scraping). Throws on fetch error.
 async function fetchWebPage(url, sourceName, priority) {
-  try {
-    const response = await axios.get(url, {
-      timeout: 10000,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      }
-    });
-    
-    const $ = cheerio.load(response.data);
-    const title = $('title').text() || $('h1').first().text() || 'Untitled';
-    const description = $('meta[name="description"]').attr('content') || 
-                       $('meta[property="og:description"]').attr('content') || '';
-    const content = $('article').text() || $('main').text() || '';
-    
-    return {
-      title: title.trim(),
-      description: description.trim(),
-      content: content.substring(0, 5000).trim(),
+  const response = await axios.get(url, {
+    timeout: 10000,
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    }
+  });
+  const $ = cheerio.load(response.data);
+  const title = $('title').text() || $('h1').first().text() || 'Untitled';
+  const description = $('meta[name="description"]').attr('content') ||
+    $('meta[property="og:description"]').attr('content') || '';
+  const content = $('article').text() || $('main').text() || '';
+  return {
+    title: title.trim(),
+    description: description.trim(),
+    content: content.substring(0, 5000).trim(),
+    url: url,
+    source: {
+      type: 'web',
+      name: sourceName,
       url: url,
-      source: {
-        type: 'web',
-        name: sourceName,
-        url: url,
-        priority: priority
-      },
-      publishedAt: new Date(),
-      metadata: {
-        imageUrl: $('meta[property="og:image"]').attr('content') || ''
-      }
-    };
-  } catch (error) {
-    console.error(`Error fetching web page ${url}:`, error.message);
-    return null;
-  }
+      priority: priority
+    },
+    publishedAt: new Date(),
+    metadata: {
+      imageUrl: $('meta[property="og:image"]').attr('content') || ''
+    }
+  };
 }
 
 // Fetch news for user within timeframe
-async function fetchNewsForUser(userId, timeframe = '24h') {
+// useAllSources: when true, ignore user preferences and use all active FeedSources from DB
+async function fetchNewsForUser(userId, timeframe = '24h', useAllSources = false) {
   const user = await findUserByIdOrName(userId);
-  
   if (!user) {
     throw new Error('User not found');
   }
-  
   const sinceDate = parseTimeframe(timeframe);
   const allItems = [];
-  
-  // Get sources: use user's custom sources if available, otherwise use global FeedSources
-  let sources = user.preferences?.sources || [];
-  
-  if (sources.length === 0) {
-    // Fall back to global FeedSources
-    console.log('📡 No user sources configured, using global FeedSources...');
-    const globalSources = await FeedSource.find({ isActive: true });
-    sources = globalSources.map(s => ({
+
+  // Get sources: use global FeedSources when useAllSources, else user preferences, else global
+  let sources = [];
+  let fromUserPrefs = false;
+  if (useAllSources) {
+    sources = (await FeedSource.find({ isActive: true })).map(s => ({
       type: s.type,
       url: s.url,
       name: s.name,
       priority: 5
     }));
-    console.log(`   Found ${sources.length} global feed source(s)`);
+  } else {
+    sources = user.preferences?.sources || [];
+    fromUserPrefs = sources.length > 0;
+    if (sources.length === 0) {
+      const globalSources = await FeedSource.find({ isActive: true });
+      sources = globalSources.map(s => ({
+        type: s.type,
+        url: s.url,
+        name: s.name,
+        priority: 5
+      }));
+    }
   }
-  
+
+  const totalSources = sources.length;
+  let successCount = 0;
+  let failedCount = 0;
+  const failedSources = [];
+
   // Sort by priority (higher priority first)
   const sortedSources = [...sources].sort((a, b) => (b.priority || 5) - (a.priority || 5));
-  
+
   for (const source of sortedSources) {
+    const sourceName = source.name || source.url;
     try {
       let items = [];
-      
       if (source.type === 'rss' && source.url) {
-        console.log(`   Fetching RSS: ${source.name || source.url}`);
-        items = await fetchRSSFeed(source.url, source.name || source.url, source.priority || 5);
-        console.log(`   ✓ Got ${items.length} items from ${source.name || source.url}`);
-      } else if (source.type === 'website' && source.url) {
-        const item = await fetchWebPage(source.url, source.name || source.url, source.priority || 5);
+        items = await fetchRSSFeed(source.url, sourceName, source.priority || 5);
+      } else if ((source.type === 'website' || source.type === 'scraper') && source.url) {
+        const item = await fetchWebPage(source.url, sourceName, source.priority || 5);
         if (item) items = [item];
+      } else if (source.url) {
+        failedCount++;
+        failedSources.push(`${sourceName} (unsupported type: ${source.type})`);
+        continue;
       }
-      // Note: Instagram and X would require API integration
-      
-      // Filter by timeframe
+
       items = items.filter(item => item.publishedAt >= sinceDate);
-      
       allItems.push(...items);
+      successCount++;
     } catch (error) {
-      console.error(`Error fetching from source ${source.url}:`, error.message);
+      failedCount++;
+      failedSources.push(sourceName);
     }
+  }
+
+  console.log(`📡 Fetched from ${totalSources} sources: ${successCount} succeeded, ${failedCount} failed (${fromUserPrefs ? 'user-configured' : 'global FeedSource DB'})`);
+  if (failedSources.length > 0) {
+    console.log(`   Failed: ${failedSources.join(', ')}`);
   }
   
   // Remove duplicates by URL
@@ -197,22 +199,33 @@ async function fetchNewsForUser(userId, timeframe = '24h') {
     }
   }
   
-  // Second pass: generate embeddings for new items
+  // Second pass: generate embeddings for new items (batched for throughput)
   if (newItems.length > 0) {
-    console.log(`🧠 Generating embeddings for ${newItems.length} news items...`);
-    
     const embeddingAvailable = await isEmbeddingAvailable();
     if (embeddingAvailable) {
+      const toEmbed = [];
       for (const item of newItems) {
         try {
-          const embedding = await generateNewsEmbedding(item);
-          item.embedding = embedding;
-          await item.save();
+          toEmbed.push({ item, text: getNewsEmbeddingText(item) });
         } catch (error) {
-          console.error(`   ⚠️ Failed to generate embedding for "${item.title.substring(0, 50)}...": ${error.message}`);
+          console.error(`   ⚠️ Skipping embedding for "${(item.title || '').substring(0, 50)}...": ${error.message}`);
         }
       }
-      console.log(`   ✅ Embeddings generated for ${newItems.length} items`);
+      if (toEmbed.length > 0) {
+        console.log(`🧠 Generating embeddings for ${toEmbed.length} news items (batch)...`);
+        const texts = toEmbed.map(({ text }) => text);
+        const embeddings = await generateEmbeddings(texts);
+        await Promise.all(
+          toEmbed.map(({ item }, i) => {
+            item.embedding = embeddings[i];
+            return item.save();
+          })
+        );
+        console.log(`   ✅ Embeddings generated for ${toEmbed.length} items`);
+      }
+      if (toEmbed.length < newItems.length) {
+        console.log(`   ⚠️ ${newItems.length - toEmbed.length} items skipped (no valid text)`);
+      }
     } else {
       // Get detailed diagnostic information
       const diagnostics = getDiagnostics();
@@ -277,14 +290,25 @@ async function saveAndEmbedNewsItems(uniqueItems) {
   if (newItems.length > 0) {
     const embeddingAvailable = await isEmbeddingAvailable();
     if (embeddingAvailable) {
+      const toEmbed = [];
       for (const item of newItems) {
         try {
-          const embedding = await generateNewsEmbedding(item);
-          item.embedding = embedding;
-          await item.save();
+          toEmbed.push({ item, text: getNewsEmbeddingText(item) });
         } catch (error) {
-          console.error(`   ⚠️ Failed to generate embedding for "${item.title.substring(0, 50)}...": ${error.message}`);
+          console.error(`   ⚠️ Skipping embedding for "${(item.title || '').substring(0, 50)}...": ${error.message}`);
         }
+      }
+      if (toEmbed.length > 0) {
+        console.log(`🧠 Generating embeddings for ${toEmbed.length} news items (batch)...`);
+        const texts = toEmbed.map(({ text }) => text);
+        const embeddings = await generateEmbeddings(texts);
+        await Promise.all(
+          toEmbed.map(({ item }, i) => {
+            item.embedding = embeddings[i];
+            return item.save();
+          })
+        );
+        console.log(`   ✅ Embeddings generated for ${toEmbed.length} items`);
       }
     }
   }
@@ -293,17 +317,31 @@ async function saveAndEmbedNewsItems(uniqueItems) {
 
 // Fetch from all active global feed sources (for scheduler / admin). Updates each source's lastFetched.
 async function fetchNewsFromAllActiveSources() {
+  await ensureEmbeddingReady();
   const sources = await FeedSource.find({ isActive: true });
   const allItems = [];
+  let successCount = 0;
+  let failedCount = 0;
+  const failedSources = [];
+
   for (const source of sources) {
+    const sourceName = source.name || source.url;
     try {
       const items = await fetchFromFeedSource(source);
       allItems.push(...items);
       await FeedSource.findByIdAndUpdate(source._id, { lastFetched: new Date() });
+      successCount++;
     } catch (error) {
-      console.error(`Error fetching from source ${source._id}:`, error.message);
+      failedCount++;
+      failedSources.push(sourceName);
     }
   }
+
+  console.log(`📡 Fetched from ${sources.length} sources: ${successCount} succeeded, ${failedCount} failed`);
+  if (failedSources.length > 0) {
+    console.log(`   Failed: ${failedSources.join(', ')}`);
+  }
+
   const seenUrls = new Set();
   const uniqueItems = allItems.filter((item) => {
     if (seenUrls.has(item.url)) return false;
@@ -311,11 +349,18 @@ async function fetchNewsFromAllActiveSources() {
     return true;
   });
   const savedItems = await saveAndEmbedNewsItems(uniqueItems);
-  return { count: savedItems.length, sourcesProcessed: sources.length };
+  return {
+    count: savedItems.length,
+    sourcesProcessed: sources.length,
+    successCount,
+    failedCount,
+    failedSources
+  };
 }
 
 // Fetch from a single feed source by id (for admin "fetch this source" button). Updates source's lastFetched.
 async function fetchNewsFromSource(sourceId) {
+  await ensureEmbeddingReady();
   const source = await FeedSource.findById(sourceId);
   if (!source) {
     throw new Error('Source not found');

@@ -1185,7 +1185,7 @@
                 showMessage('已成功登出', 'success');
             };
 
-            // Fetch news
+            // Fetch news (admins fetch from all DB sources by default)
             const handleFetchNews = async () => {
                 setLoading(true);
                 try {
@@ -1196,7 +1196,7 @@
                             'Content-Type': 'application/json',
                             'Authorization': `Bearer ${token}`
                         },
-                        body: JSON.stringify({ timeframe })
+                        body: JSON.stringify({ timeframe, useAllSources: userRole === 'ADMIN' })
                     });
 
                     const data = await res.json();

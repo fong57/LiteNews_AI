@@ -4,6 +4,7 @@ const router = express.Router();
 const { protect } = require('../middleware/auth');
 const { fetchNewsForUser, parseTimeframe } = require('../services/newsFetcher');
 const { categorizeAndGroup } = require('../services/topicGrouper');
+const { initializeModel: ensureEmbeddingReady } = require('../services/embedding');
 const { rankTopicsByCategory } = require('../services/rankingService');
 const NewsItem = require('../models/NewsItem');
 const Topic = require('../models/Topic');
@@ -12,14 +13,25 @@ const { findUserByIdOrName } = require('../utils/userHelper');
 
 router.use(protect);
 
-// Fetch news
+// Fetch news (embedding service must be ready first so new items get embeddings)
 router.post('/fetch', async (req, res) => {
   try {
     const userId = req.user.userId || 'admin';
-    const { timeframe = '24h' } = req.body;
-    
-    const newsItems = await fetchNewsForUser(userId, timeframe);
-    
+    const { timeframe = '24h', useAllSources = false } = req.body;
+
+    // Ensure embedding model is downloaded and loaded before fetching (so new items get embeddings)
+    try {
+      await ensureEmbeddingReady();
+    } catch (embedError) {
+      return res.status(503).json({
+        status: 'error',
+        message: 'Embedding service is not ready. News fetch requires it so items can be clustered into topics.',
+        details: embedError.message || 'Model may still be downloading. Check internet connection, wait a few minutes, then try again.'
+      });
+    }
+
+    const newsItems = await fetchNewsForUser(userId, timeframe, useAllSources);
+
     res.json({
       status: 'success',
       message: `Fetched ${newsItems.length} news items`,

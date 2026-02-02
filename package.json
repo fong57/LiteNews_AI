@@ -13,7 +13,9 @@
     "test-perplexity": "node scripts/test-perplexity.js",
     "init-feedsources": "node scripts/init-feedsources.js",
     "setup": "node scripts/reset-db.js --force --with-admin",
-    "setup-vector-index": "node scripts/setup-vector-index.js"
+    "setup-vector-index": "node scripts/setup-vector-index.js",
+    "drop-vector-index": "node scripts/drop-vector-index.js",
+    "compare-clustering": "node scripts/compare-clustering.js"
   },
   "keywords": [
     "news",
