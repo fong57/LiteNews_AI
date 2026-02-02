@@ -6,6 +6,8 @@ const FeedSource = require('../models/FeedSource');
 const User = require('../models/User');
 const Category = require('../models/Category');
 const SocialFetchSchedule = require('../models/SocialFetchSchedule');
+const NewsFetchSchedule = require('../models/NewsFetchSchedule');
+const { fetchNewsFromAllActiveSources, fetchNewsFromSource } = require('../services/newsFetcher');
 
 router.use(protect);
 router.use(adminOnly); // All admin routes require admin role
@@ -91,6 +93,78 @@ router.delete('/sources/:sourceId', async (req, res) => {
     res.json({
       status: 'success',
       message: 'Source deleted'
+    });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: error.message });
+  }
+});
+
+// Fetch news from a single feed source (admin)
+router.post('/sources/:sourceId/fetch', async (req, res) => {
+  try {
+    const result = await fetchNewsFromSource(req.params.sourceId);
+    res.json({
+      status: 'success',
+      message: `Fetched ${result.count} news items`,
+      data: { count: result.count }
+    });
+  } catch (error) {
+    if (error.message === 'Source not found') {
+      return res.status(404).json({ status: 'error', message: error.message });
+    }
+    res.status(500).json({ status: 'error', message: error.message });
+  }
+});
+
+// ==================== NEWS FETCH SCHEDULE ====================
+
+// Get news fetch schedule (24 hours, admin)
+router.get('/news-fetch-schedule', async (req, res) => {
+  try {
+    const schedule = await NewsFetchSchedule.getSchedule();
+    res.json({
+      status: 'success',
+      data: {
+        scheduleHours: schedule.scheduleHours,
+        lastRunAt: schedule.lastRunAt
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: error.message });
+  }
+});
+
+// Update news fetch schedule (admin)
+router.put('/news-fetch-schedule', async (req, res) => {
+  try {
+    const { scheduleHours } = req.body;
+    if (!Array.isArray(scheduleHours) || scheduleHours.length !== 24) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'scheduleHours must be an array of 24 booleans (hours 0-23)'
+      });
+    }
+    const schedule = await NewsFetchSchedule.getSchedule();
+    schedule.scheduleHours = scheduleHours.map(Boolean);
+    await schedule.save();
+    res.json({
+      status: 'success',
+      message: 'Schedule updated',
+      data: { scheduleHours: schedule.scheduleHours }
+    });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: error.message });
+  }
+});
+
+// Trigger news fetch for all active sources (admin)
+router.post('/news-fetch-schedule/run', async (req, res) => {
+  try {
+    const result = await fetchNewsFromAllActiveSources();
+    res.json({
+      status: 'success',
+      message: `Fetched ${result.count} news items from ${result.sourcesProcessed} sources`,
+      data: result
     });
   } catch (error) {
     res.status(500).json({ status: 'error', message: error.message });

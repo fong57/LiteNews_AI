@@ -389,8 +389,178 @@ function normalizePost(video, handle, channelInfo) {
   const videoId = video.id || video.videoId;
   const title = video.title || '';
   const description = video.description || '';
-  const publishedAt = video.publishDate ? new Date(video.publishDate) : 
-                     (video.publishDateText ? new Date(video.publishDateText) : new Date());
+  // Determine publishedAt robustly from multiple possible fields returned by SociaVault
+  let publishedAt = null;
+  const tryParseDate = (val) => {
+    if (!val && val !== 0) return null;
+    // Numbers may be seconds or milliseconds
+    if (typeof val === 'number') {
+      // If it's in seconds (reasonable range), convert to ms
+      if (val < 1e12) return new Date(val * 1000);
+      return new Date(val);
+    }
+    // Strings: try ISO parse
+    if (typeof val === 'string') {
+      const parsed = Date.parse(val);
+      if (!isNaN(parsed)) return new Date(parsed);
+      // Try extracting unix timestamp within the string
+      const m = val.match(/(\d{10,13})/);
+      if (m) {
+        const n = Number(m[1]);
+        if (n < 1e12) return new Date(n * 1000);
+        return new Date(n);
+      }
+    }
+    return null;
+  };
+
+  const dateCandidates = [
+    video.publishDate,
+    video.publish_date,
+    video.publishTime,
+    video.publish_time,
+    video.publishTimestamp,
+    video.publish_timestamp,
+    video.publishedAt,
+    video.published_at,
+    video.published,
+    video.uploadDate,
+    video.upload_date,
+    video.datePublished,
+    video.publishedDate,
+    video.publishDateText,
+    video.publishDateText,
+    video.publishDateText || video.publishDateText,
+    video.publishedText,
+    video.publishDateText
+  ];
+
+  for (const cand of dateCandidates) {
+    const d = tryParseDate(cand);
+    if (d) {
+      publishedAt = d;
+      break;
+    }
+  }
+
+  // As a last resort, try known nested locations (some SociaVault shapes)
+  if (!publishedAt) {
+    if (video.snippet && video.snippet.publishedAt) {
+      publishedAt = tryParseDate(video.snippet.publishedAt);
+    } else if (video.published && video.published.time) {
+      publishedAt = tryParseDate(video.published.time);
+    }
+  }
+
+  // If still not found, try to infer publishedAt from SociaVault's publishedTime + publishedTimeText
+  // (publishedTime is when the API returned data; publishedTimeText is human relative like "7 minutes ago").
+  const parseRelativeTextToMs = (text) => {
+    if (!text || typeof text !== 'string') return null;
+    const t = text.trim().toLowerCase();
+    if (t === 'just now' || t === 'just' || t === 'now') return 0;
+    if (t === 'yesterday') return 24 * 60 * 60 * 1000;
+
+    // Match patterns like "7 minutes ago", "an hour ago", "2 days ago", "3 hrs ago"
+    const m = t.match(/^(?:about\s+)?(?:(an|a)|(\d+))\s*(second|sec|s|minute|min|m|hour|hr|h|day|d|week|w|month|mo|year|y)s?\b/);
+    if (m) {
+      const qty = m[2] ? parseInt(m[2], 10) : 1;
+      const unit = m[3];
+      const multipliers = {
+        second: 1000,
+        sec: 1000,
+        s: 1000,
+        minute: 60 * 1000,
+        min: 60 * 1000,
+        m: 60 * 1000,
+        hour: 60 * 60 * 1000,
+        hr: 60 * 60 * 1000,
+        h: 60 * 60 * 1000,
+        day: 24 * 60 * 60 * 1000,
+        d: 24 * 60 * 60 * 1000,
+        week: 7 * 24 * 60 * 60 * 1000,
+        w: 7 * 24 * 60 * 60 * 1000,
+        month: 30 * 24 * 60 * 60 * 1000,
+        mo: 30 * 24 * 60 * 60 * 1000,
+        year: 365 * 24 * 60 * 60 * 1000,
+        y: 365 * 24 * 60 * 60 * 1000
+      };
+      const key = Object.keys(multipliers).find(k => unit.startsWith(k));
+      if (key) return qty * multipliers[key];
+    }
+
+    // Try compact forms like "7m", "2h", "3d"
+    const m2 = t.match(/^(\d+)\s*(s|m|h|d|w|mo|y)$/);
+    if (m2) {
+      const qty = parseInt(m2[1], 10);
+      const unit = m2[2];
+      const map2 = {
+        s: 1000,
+        m: 60 * 1000,
+        h: 60 * 60 * 1000,
+        d: 24 * 60 * 60 * 1000,
+        w: 7 * 24 * 60 * 60 * 1000,
+        mo: 30 * 24 * 60 * 60 * 1000,
+        y: 365 * 24 * 60 * 60 * 1000
+      };
+      if (map2[unit]) return qty * map2[unit];
+    }
+
+    return null;
+  };
+
+  if (!publishedAt && video.publishedTime && video.publishedTimeText) {
+    const base = tryParseDate(video.publishedTime);
+    const relMs = parseRelativeTextToMs(video.publishedTimeText);
+    if (base && relMs !== null) {
+      publishedAt = new Date(base.getTime() - relMs);
+      console.log('[YouTube] normalizePost: estimated publishedAt from publishedTimeText for videoId=', videoId, {
+        publishedTime: base.toISOString(),
+        publishedTimeText: video.publishedTimeText,
+        estimated: publishedAt.toISOString()
+      });
+    }
+  }
+
+  // If still not found, try common "createdAt" like fields from SociaVault as a fallback,
+  // otherwise leave as null to avoid using DB insertion time.
+  if (!publishedAt) {
+    const createdCandidates = [
+      video.createdAt,
+      video.created_at,
+      video.created,
+      video.addedAt,
+      video.added_at,
+      video.indexedAt,
+      video.indexed_at,
+      video.firstSeen,
+      video.first_seen,
+      video.scrapedAt,
+      video.scraped_at,
+      video.uploadedAt,
+      video.uploaded_at,
+      video.dateAdded,
+      video.date_added
+    ];
+
+    for (const cand of createdCandidates) {
+      const d = tryParseDate(cand);
+      if (d) {
+        publishedAt = d;
+        console.warn('[YouTube] normalizePost: Using fallback createdAt-like field for publishedAt for videoId=', videoId);
+        break;
+      }
+    }
+  }
+
+  if (!publishedAt) {
+    // Log available keys to help identify which SociaVault field contains publish time
+    try {
+      const keys = Object.keys(video).slice(0, 50);
+      console.warn('[YouTube] normalizePost: Unable to determine publishedAt. Video keys:', keys, 'videoId=', videoId);
+    } catch (e) {
+      console.warn('[YouTube] normalizePost: Unable to determine publishedAt and failed to list keys for videoId=', videoId);
+    }
+  }
   
   // Extract engagement metrics from SociaVault response
   const viewCount = video.viewCountInt || parseInt(video.viewCount || 0, 10);

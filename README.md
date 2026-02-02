@@ -71,8 +71,10 @@ LiteNews AI is a full-stack application that:
 
 2. **Install dependencies**
    ```bash
-   npm install
+   npm install --legacy-peer-deps
    ```
+   > Use `--legacy-peer-deps` to avoid peer dependency conflicts. If you see peer dependency errors with plain `npm install`, run the command above.
+   >
    > Note: First run will download the embedding model (~100MB) to `.cache/fastembed/`
 
 3. **Configure environment variables**
@@ -487,6 +489,9 @@ If `npm run setup-vector-index` fails, create the index manually in MongoDB Atla
 - **Graceful fallbacks**: Manual clustering if Atlas Vector Search unavailable; mock LLM if API unavailable
 
 ## 🐛 Troubleshooting
+
+### npm install fails (peer dependency conflicts)
+- Run **`npm install --legacy-peer-deps`** instead of `npm install`. This project may have peer dependency conflicts that npm 7+ reports as errors; `--legacy-peer-deps` installs using the legacy peer dependency resolution.
 
 ### MongoDB Connection Issues
 - Check your `MONGODB_URI` in `.env`

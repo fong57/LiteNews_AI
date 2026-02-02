@@ -44,7 +44,10 @@ const userSchema = new mongoose.Schema({
       of: Number,
       default: {}
     }
-  }
+  },
+  // 素材夾: saved topics and social posts (persisted to DB)
+  savedTopics: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Topic' }],
+  savedSocialPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'SocialPost' }]
 }, {
   timestamps: true
 });

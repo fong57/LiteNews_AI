@@ -233,8 +233,103 @@ async function fetchNewsForUser(userId, timeframe = '24h') {
   return savedItems;
 }
 
+// Resolve feed type for fetcher: 'scraper' -> 'website'
+function resolveFeedType(type) {
+  return type === 'scraper' ? 'website' : type;
+}
+
+// Fetch from a single FeedSource doc and return items (no save)
+async function fetchFromFeedSource(source) {
+  const type = resolveFeedType(source.type);
+  const name = source.name || source.url;
+  const priority = 5;
+  let items = [];
+  if (type === 'rss' && source.url) {
+    items = await fetchRSSFeed(source.url, name, priority);
+  } else if ((type === 'website' || type === 'scraper') && source.url) {
+    const item = await fetchWebPage(source.url, name, priority);
+    if (item) items = [item];
+  }
+  return items;
+}
+
+// Save items to DB and generate embeddings; returns saved items
+async function saveAndEmbedNewsItems(uniqueItems) {
+  const savedItems = [];
+  const newItems = [];
+  for (const item of uniqueItems) {
+    try {
+      const existing = await NewsItem.findOne({ url: item.url });
+      if (!existing) {
+        const newsItem = await NewsItem.create(item);
+        savedItems.push(newsItem);
+        newItems.push(newsItem);
+      } else {
+        savedItems.push(existing);
+        if (!existing.embedding || existing.embedding.length === 0) {
+          newItems.push(existing);
+        }
+      }
+    } catch (error) {
+      console.error(`Error saving news item: ${error.message}`);
+    }
+  }
+  if (newItems.length > 0) {
+    const embeddingAvailable = await isEmbeddingAvailable();
+    if (embeddingAvailable) {
+      for (const item of newItems) {
+        try {
+          const embedding = await generateNewsEmbedding(item);
+          item.embedding = embedding;
+          await item.save();
+        } catch (error) {
+          console.error(`   ⚠️ Failed to generate embedding for "${item.title.substring(0, 50)}...": ${error.message}`);
+        }
+      }
+    }
+  }
+  return savedItems;
+}
+
+// Fetch from all active global feed sources (for scheduler / admin). Updates each source's lastFetched.
+async function fetchNewsFromAllActiveSources() {
+  const sources = await FeedSource.find({ isActive: true });
+  const allItems = [];
+  for (const source of sources) {
+    try {
+      const items = await fetchFromFeedSource(source);
+      allItems.push(...items);
+      await FeedSource.findByIdAndUpdate(source._id, { lastFetched: new Date() });
+    } catch (error) {
+      console.error(`Error fetching from source ${source._id}:`, error.message);
+    }
+  }
+  const seenUrls = new Set();
+  const uniqueItems = allItems.filter((item) => {
+    if (seenUrls.has(item.url)) return false;
+    seenUrls.add(item.url);
+    return true;
+  });
+  const savedItems = await saveAndEmbedNewsItems(uniqueItems);
+  return { count: savedItems.length, sourcesProcessed: sources.length };
+}
+
+// Fetch from a single feed source by id (for admin "fetch this source" button). Updates source's lastFetched.
+async function fetchNewsFromSource(sourceId) {
+  const source = await FeedSource.findById(sourceId);
+  if (!source) {
+    throw new Error('Source not found');
+  }
+  const items = await fetchFromFeedSource(source);
+  await FeedSource.findByIdAndUpdate(sourceId, { lastFetched: new Date() });
+  const savedItems = await saveAndEmbedNewsItems(items);
+  return { count: savedItems.length };
+}
+
 module.exports = {
   fetchNewsForUser,
   fetchRSSFeed,
-  parseTimeframe
+  parseTimeframe,
+  fetchNewsFromAllActiveSources,
+  fetchNewsFromSource
 };

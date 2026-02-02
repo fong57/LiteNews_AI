@@ -9,7 +9,7 @@ const feedSourceSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['rss', 'api', 'scraper'],
+    enum: ['rss', 'api', 'scraper', 'website'],
     required: true
   },
   url: {

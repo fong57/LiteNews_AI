@@ -235,6 +235,7 @@
 
         /* Topic Card */
         .topic-card {
+            position: relative;
             background: var(--card-bg);
             border-radius: 12px;
             padding: 1.5rem;
@@ -332,6 +333,7 @@
 
         /* Social Feed Card */
         .social-feed-card {
+            position: relative;
             background: var(--card-bg);
             border-radius: 12px;
             padding: 1rem;
@@ -339,6 +341,21 @@
             border: 1px solid var(--border);
             display: flex;
             flex-direction: column;
+        }
+
+        /* Copy button style (inline in actions) */
+        .card-copy-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.4rem 0.75rem;
+            font-size: 0.8rem;
+            border-radius: 8px;
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.12);
         }
 
         .social-feed-header {
@@ -957,7 +974,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useCallback } = React;
 
         function App() {
             const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -981,6 +998,7 @@
             const [socialSort, setSocialSort] = useState('publishedAt'); // Default: sort by publishedAt (首發時間)
             const [socialPostDrafts, setSocialPostDrafts] = useState([]); // Array of social post objects
             const [lastAutoFetchTime, setLastAutoFetchTime] = useState(null);
+            const [pendingWriterJobId, setPendingWriterJobId] = useState(null);
             const [preferences, setPreferences] = useState({
                 sources: [],
                 categories: [],
@@ -988,58 +1006,59 @@
                 socialHandlesOrder: []
             });
 
-            // Load drafts from localStorage on mount
-            useEffect(() => {
-                const savedDrafts = localStorage.getItem('drafts');
-                if (savedDrafts) {
-                    try {
-                        setDrafts(JSON.parse(savedDrafts));
-                    } catch (e) {
-                        console.error('Failed to load drafts:', e);
+            // Load 素材夾 from API when logged in (persisted to DB)
+            const loadMaterials = async () => {
+                const token = localStorage.getItem('jwt_token');
+                if (!token) return;
+                try {
+                    const res = await fetch('/api/materials', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        setDrafts(data.data?.topics || []);
+                        setSocialPostDrafts(data.data?.socialPosts || []);
                     }
+                } catch (e) {
+                    console.error('Failed to load materials:', e);
                 }
-            }, []);
+            };
 
-            // Save drafts to localStorage whenever drafts change
-            useEffect(() => {
-                if (drafts.length >= 0) {
-                    localStorage.setItem('drafts', JSON.stringify(drafts));
-                }
-            }, [drafts]);
-
-            // Load social post drafts from localStorage on mount
-            useEffect(() => {
-                const savedSocialDrafts = localStorage.getItem('socialPostDrafts');
-                if (savedSocialDrafts) {
-                    try {
-                        setSocialPostDrafts(JSON.parse(savedSocialDrafts));
-                    } catch (e) {
-                        console.error('Failed to load social post drafts:', e);
-                    }
-                }
-            }, []);
-
-            // Save social post drafts to localStorage whenever they change
-            useEffect(() => {
-                if (socialPostDrafts.length >= 0) {
-                    localStorage.setItem('socialPostDrafts', JSON.stringify(socialPostDrafts));
-                }
-            }, [socialPostDrafts]);
-
-            // Add social post to draft
-            const handleAddSocialPostToDraft = (post) => {
-                // Check if post already exists in drafts
-                const exists = socialPostDrafts.some(d => 
-                    d._id === post._id || 
+            // Add social post to draft (persisted to DB)
+            const handleAddSocialPostToDraft = async (post) => {
+                const exists = socialPostDrafts.some(d =>
+                    d._id === post._id ||
                     (d.externalId === post.externalId && d.platform === post.platform)
                 );
                 if (exists) {
-                    showMessage('此貼文已在草稿箱中', 'info');
+                    showMessage('此貼文已在素材夾中', 'info');
                     return;
                 }
-                const newDrafts = [...socialPostDrafts, post];
-                setSocialPostDrafts(newDrafts);
-                showMessage('已加入草稿箱', 'success');
+                if (!post._id) {
+                    showMessage('此貼文無法加入素材夾', 'error');
+                    return;
+                }
+                const token = localStorage.getItem('jwt_token');
+                if (!token) {
+                    showMessage('請先登入', 'error');
+                    return;
+                }
+                try {
+                    const res = await fetch('/api/materials/social-posts', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ socialPostId: post._id })
+                    });
+                    const data = await res.json();
+                    if (res.ok) {
+                        setSocialPostDrafts(prev => [...prev, post]);
+                        showMessage('已加入素材夾', 'success');
+                    } else {
+                        showMessage(data.message || '加入失敗', 'error');
+                    }
+                } catch (e) {
+                    showMessage('加入失敗: ' + e.message, 'error');
+                }
             };
 
             // Check if user is logged in on mount
@@ -1049,9 +1068,9 @@
                 if (token && role) {
                     setIsLoggedIn(true);
                     setUserRole(role);
-                    // Load user info first to get feedback, then preferences
+                    // Load user info first to get feedback, then preferences, then 素材夾 from DB
                     loadUserInfo().then(() => {
-                        loadPreferences();
+                        loadPreferences().then(() => loadMaterials());
                     });
                 }
             }, []);
@@ -1140,7 +1159,7 @@
                         setUserRole(data.user.role);
                         setCurrentUser(data.user);
                         showMessage('登入成功！', 'success');
-                        loadPreferences();
+                        loadPreferences().then(() => loadMaterials());
                     } else {
                         showMessage(data.message || '登入失敗', 'error');
                     }
@@ -1155,10 +1174,14 @@
             const handleLogout = () => {
                 localStorage.removeItem('jwt_token');
                 localStorage.removeItem('user_role');
+                localStorage.removeItem('drafts');
+                localStorage.removeItem('socialPostDrafts');
                 setIsLoggedIn(false);
                 setUserRole(null);
                 setCurrentUser(null);
                 setTopics([]);
+                setDrafts([]);
+                setSocialPostDrafts([]);
                 showMessage('已成功登出', 'success');
             };
 
@@ -1298,52 +1321,140 @@
                 }
             };
 
-            // Add topic to draft
-            const handleAddToDraft = (topic) => {
-                // Check if topic already exists in drafts
+            // Add topic to draft (persisted to DB)
+            const handleAddToDraft = async (topic) => {
                 const exists = drafts.some(d => d._id === topic._id);
                 if (exists) {
-                    showMessage('此主題已在草稿箱中', 'info');
+                    showMessage('此主題已在素材夾中', 'info');
                     return;
                 }
-                const newDrafts = [...drafts, topic];
-                setDrafts(newDrafts);
-                showMessage('已加入草稿箱', 'success');
-            };
-
-            // Remove topic from draft
-            const handleRemoveFromDraft = (topicId) => {
-                const newDrafts = drafts.filter(d => d._id !== topicId);
-                setDrafts(newDrafts);
-                showMessage('已從草稿箱移除', 'success');
-            };
-
-            // Remove social post from draft
-            const handleRemoveSocialPostFromDraft = (postId) => {
-                // Filter out by _id first
-                let newDrafts = socialPostDrafts.filter(d => d._id !== postId);
-                
-                // If not found by _id, try to find by externalId + platform
-                if (newDrafts.length === socialPostDrafts.length) {
-                    const postToRemove = socialPostDrafts.find(p => 
-                        p._id === postId || 
-                        (typeof postId === 'string' && p.externalId === postId)
-                    );
-                    if (postToRemove && postToRemove.externalId) {
-                        newDrafts = socialPostDrafts.filter(d => 
-                            !(d.externalId === postToRemove.externalId && d.platform === postToRemove.platform)
-                        );
-                    }
+                const token = localStorage.getItem('jwt_token');
+                if (!token) {
+                    showMessage('請先登入', 'error');
+                    return;
                 }
-                
-                setSocialPostDrafts(newDrafts);
-                showMessage('已從草稿箱移除', 'success');
+                try {
+                    const res = await fetch('/api/materials/topics', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ topicId: topic._id })
+                    });
+                    const data = await res.json();
+                    if (res.ok) {
+                        setDrafts(prev => [...prev, topic]);
+                        showMessage('已加入素材夾', 'success');
+                    } else {
+                        showMessage(data.message || '加入失敗', 'error');
+                    }
+                } catch (e) {
+                    showMessage('加入失敗: ' + e.message, 'error');
+                }
+            };
+
+            // Remove topic from draft (persisted to DB)
+            const handleRemoveFromDraft = async (topicId) => {
+                const token = localStorage.getItem('jwt_token');
+                if (!token) return;
+                try {
+                    const res = await fetch(`/api/materials/topics/${topicId}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (res.ok) {
+                        setDrafts(prev => prev.filter(d => d._id !== topicId));
+                        showMessage('已從素材夾移除', 'success');
+                    }
+                } catch (e) {
+                    showMessage('移除失敗: ' + e.message, 'error');
+                }
+            };
+
+            // Remove social post from draft (persisted to DB)
+            const handleRemoveSocialPostFromDraft = async (postId) => {
+                const token = localStorage.getItem('jwt_token');
+                if (!token) return;
+                const postToRemove = socialPostDrafts.find(p =>
+                    p._id === postId || (typeof postId === 'string' && p.externalId === postId)
+                );
+                const idToDelete = postToRemove?._id || postId;
+                if (!idToDelete) return;
+                try {
+                    const res = await fetch(`/api/materials/social-posts/${idToDelete}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (res.ok) {
+                        const idStr = (idToDelete && (idToDelete.toString && idToDelete.toString())) || idToDelete;
+                        setSocialPostDrafts(prev => prev.filter(d => (d._id && d._id.toString()) !== idStr));
+                        showMessage('已從素材夾移除', 'success');
+                    }
+                } catch (e) {
+                    showMessage('移除失敗: ' + e.message, 'error');
+                }
             };
 
             // Show message
             const showMessage = (text, type = 'info') => {
                 setMessage({ text, type });
                 setTimeout(() => setMessage(null), 5000);
+            };
+
+            const handleStartArticleFromTopic = async (topic) => {
+                if (!topic || !topic._id) {
+                    showMessage('請選擇主題', 'error');
+                    return;
+                }
+                const token = localStorage.getItem('jwt_token');
+                if (!token) {
+                    showMessage('請先登入', 'error');
+                    return;
+                }
+                try {
+                    const res = await fetch('/api/writer/generate', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ topicId: topic._id, options: { language: 'zh-TW' } })
+                    });
+                    const data = await res.json();
+                    if (res.status === 201 && data.jobId) {
+                        setPendingWriterJobId(data.jobId);
+                        setCurrentRoute('writer');
+                        showMessage('已開始生成文章，請在寫作中心查看', 'info');
+                    } else {
+                        showMessage(data.message || '發起失敗', 'error');
+                    }
+                } catch (e) {
+                    showMessage('請求錯誤: ' + e.message, 'error');
+                }
+            };
+
+            const handleStartArticleFromSocialPost = async (post) => {
+                if (!post || !post._id) {
+                    showMessage('請選擇貼文', 'error');
+                    return;
+                }
+                const token = localStorage.getItem('jwt_token');
+                if (!token) {
+                    showMessage('請先登入', 'error');
+                    return;
+                }
+                try {
+                    const res = await fetch('/api/writer/generate', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ socialPostId: post._id, options: { language: 'zh-TW' } })
+                    });
+                    const data = await res.json();
+                    if (res.status === 201 && data.jobId) {
+                        setPendingWriterJobId(data.jobId);
+                        setCurrentRoute('writer');
+                        showMessage('已開始生成文章，請在寫作中心查看', 'info');
+                    } else {
+                        showMessage(data.message || '發起失敗', 'error');
+                    }
+                } catch (e) {
+                    showMessage('請求錯誤: ' + e.message, 'error');
+                }
             };
 
             // Load last auto-fetch time
@@ -1390,7 +1501,7 @@
                 
                 for (const handle of handles) {
                     try {
-                        const res = await fetch(`/api/social/feed?handleId=${handle._id}&sort=updatedAt&limit=100`, {
+                        const res = await fetch(`/api/social/feed?handleId=${handle._id}&sort=publishedAt&limit=100`, {
                             headers: { 'Authorization': `Bearer ${token}` }
                         });
                         if (res.ok) {
@@ -1411,7 +1522,7 @@
                             feedsMap[handle._id] = {
                                 handle: handle,
                                 posts: posts,
-                                sort: 'updatedAt'
+                                sort: 'publishedAt'
                             };
                         }
                     } catch (error) {
@@ -1419,7 +1530,7 @@
                         feedsMap[handle._id] = {
                             handle: handle,
                             posts: [],
-                            sort: 'updatedAt'
+                            sort: 'publishedAt'
                         };
                     }
                 }
@@ -1534,13 +1645,20 @@
                         socialPostDrafts={socialPostDrafts}
                         onRemoveFromDraft={handleRemoveFromDraft}
                         onRemoveSocialPostFromDraft={handleRemoveSocialPostFromDraft}
+                        onGenerateArticle={handleStartArticleFromTopic}
+                        onGenerateArticleFromSocialPost={handleStartArticleFromSocialPost}
                         topicFeedback={topicFeedback}
                         onFeedback={handleFeedback}
                     />
                 );
             } else if (currentRoute === 'writer') {
                 mainContent = (
-                    <WriterCentralPage />
+                    <WriterCentralPage
+                        showMessage={showMessage}
+                        isActive={true}
+                        pendingWriterJobId={pendingWriterJobId}
+                        onConsumeJobId={() => setPendingWriterJobId(null)}
+                    />
                 );
             } else if (currentRoute === 'social') {
                 mainContent = (
@@ -1692,7 +1810,7 @@
                                 className={`btn ${currentRoute === 'draft' ? 'btn-primary' : 'btn-outline'} btn-sm`}
                                 onClick={() => onRouteChange('draft')}
                             >
-                                草稿箱
+                                素材夾
                             </button>
                             <button
                                 className={`btn ${currentRoute === 'writer' ? 'btn-primary' : 'btn-outline'} btn-sm`}
@@ -1964,10 +2082,10 @@
                                 <button
                                     className={`btn btn-sm ${isInDraft ? 'btn-primary' : 'btn-outline'}`}
                                     onClick={handleAddToDraft}
-                                    title={isInDraft ? '已在草稿箱' : '加進草稿'}
+                                    title={isInDraft ? '已在素材夾' : '加進素材'}
                                     style={{ fontSize: '0.7rem', padding: '0.2rem 0.4rem' }}
                                 >
-                                    {isInDraft ? '已在草稿' : '加進草稿'}
+                                    {isInDraft ? '已在素材' : '加進素材'}
                                 </button>
                             </div>
                         </div>
@@ -2342,7 +2460,7 @@
                                     )}
                                 </div>
                                 
-                                {/* 加進草稿 Button - Always shown */}
+                                {/* 加進素材 Button - Always shown */}
                                 <button
                                     className={`btn btn-sm ${isInDraft ? 'btn-primary' : 'btn-outline'}`}
                                     onClick={handleAddToDraft}
@@ -2352,9 +2470,9 @@
                                         padding: '0.3rem 0.6rem',
                                         whiteSpace: 'nowrap'
                                     }}
-                                    title={isInDraft ? '已在草稿箱' : '加進草稿'}
+                                    title={isInDraft ? '已在素材夾' : '加進素材'}
                                 >
-                                    {isInDraft ? '已在草稿' : '加進草稿'}
+                                    {isInDraft ? '已在素材' : '加進素材'}
                                 </button>
                             </div>
                         </div>
@@ -2860,7 +2978,7 @@
             );
         }
 
-        function DraftPage({ drafts, socialPostDrafts = [], onRemoveFromDraft, onRemoveSocialPostFromDraft, topicFeedback, onFeedback }) {
+        function DraftPage({ drafts, socialPostDrafts = [], onRemoveFromDraft, onRemoveSocialPostFromDraft, onGenerateArticle, onGenerateArticleFromSocialPost, topicFeedback, onFeedback }) {
             const [showModal, setShowModal] = useState(false);
             const [selectedTopic, setSelectedTopic] = useState(null);
             const [showSocialPostModal, setShowSocialPostModal] = useState(false);
@@ -2876,6 +2994,29 @@
                 setShowSocialPostModal(true);
             };
 
+            // Copy topic id to clipboard
+            const handleCopyTopicId = async (topicId) => {
+                try {
+                    await navigator.clipboard.writeText(String(topicId || ''));
+                    showMessage('已複製主題 ID', 'success');
+                } catch (err) {
+                    console.error('copy failed', err);
+                    showMessage('複製失敗', 'error');
+                }
+            };
+
+            // Copy social post id to clipboard (prefer internal _id, fallback to externalId)
+            const handleCopySocialFeedId = async (post) => {
+                const idToCopy = post?._id || post?.externalId || '';
+                try {
+                    await navigator.clipboard.writeText(String(idToCopy));
+                    showMessage('已複製貼文 ID', 'success');
+                } catch (err) {
+                    console.error('copy failed', err);
+                    showMessage('複製失敗', 'error');
+                }
+            };
+
             const totalDrafts = drafts.length + socialPostDrafts.length;
 
             if (totalDrafts === 0) {
@@ -2883,8 +3024,8 @@
                     <div className="main-content">
                         <div className="empty-state">
                             <div className="empty-state-icon">📝</div>
-                            <h3>草稿箱是空的</h3>
-                            <p>從「主題發現」或「社交主題」頁面將內容加入草稿箱</p>
+                            <h3>素材夾是空的</h3>
+                            <p>從「主題發現」或「社交主題」頁面將內容加入素材夾</p>
                         </div>
                     </div>
                 );
@@ -2894,7 +3035,7 @@
                 <div className="main-content">
                     <div style={{ marginBottom: '2rem' }}>
                         <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '1rem' }}>
-                            草稿箱 ({totalDrafts})
+                            素材夾 ({totalDrafts})
                         </h2>
                         <p style={{ color: 'var(--text-light)', fontSize: '0.875rem' }}>
                             您已儲存的主題和社交貼文列表，可在此進行進一步操作
@@ -2932,7 +3073,14 @@
                                             <span>📊 分數: {Math.round(topic.finalScore || topic.discussionScore || 0)}</span>
                                             <span>📰 {topic.newsItems?.length || 0} 則新聞</span>
                                         </div>
-                                        <div className="topic-actions">
+                                        <div className="topic-actions" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                                            <button
+                                                className="btn btn-primary btn-sm"
+                                                onClick={(e) => { e.stopPropagation(); onGenerateArticle && onGenerateArticle(topic); }}
+                                                title="從此主題寫文章"
+                                            >
+                                                從此主題寫文章
+                                            </button>
                                             <button
                                                 className="btn btn-outline btn-sm"
                                                 onClick={() => handleTopicClick(topic)}
@@ -2942,8 +3090,17 @@
                                             <button
                                                 className="btn btn-danger btn-sm"
                                                 onClick={() => onRemoveFromDraft(topic._id)}
+                                                style={{ flex: '0 0 auto' }}
                                             >
                                                 移除
+                                            </button>
+                                            <button
+                                                className="card-copy-btn"
+                                                onClick={(e) => { e.stopPropagation(); handleCopyTopicId(topic._id); }}
+                                                title="複製主題 ID"
+                                                style={{ marginLeft: 'auto' }}
+                                            >
+                                                複製 ID
                                             </button>
                                         </div>
                                     </div>
@@ -2952,66 +3109,81 @@
                         </div>
                     )}
 
-                    {/* Social Post Drafts */}
+                    {/* Social Post Drafts - same card layout as topic cards */}
                     {socialPostDrafts.length > 0 && (
                         <div style={{ marginBottom: '2rem' }}>
                             <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1rem' }}>
                                 社交貼文 ({socialPostDrafts.length})
                             </h3>
-                            <div className="social-feed-grid">
-                                {socialPostDrafts.map(post => (
-                                    <div key={post._id || post.externalId} className="social-feed-card">
-                                        <div className="social-feed-header">
-                                            <div className="social-feed-handle">
-                                                <span style={{ fontSize: '1.2rem' }}>
-                                                    {post.platform === 'x' ? '𝕏' : 
-                                                     post.platform === 'instagram' ? '📷' : 
-                                                     post.platform === 'threads' ? '🧵' : 
-                                                     post.platform === 'facebook' ? '📘' : '▶️'}
+                            <div className="topics-grid">
+                                {socialPostDrafts.map(post => {
+                                    const sourceDisplayName = post.handleId?.displayName || post.author?.displayName || post.handle || '社交貼文';
+                                    const platformLabel = post.platform === 'youtube' ? 'YouTube' : post.platform === 'x' ? 'X' : post.platform === 'instagram' ? 'Instagram' : post.platform === 'threads' ? 'Threads' : post.platform === 'facebook' ? 'Facebook' : post.platform || '';
+                                    const contentSnippet = (post.title && post.title.trim()) ? (post.title.length > 150 ? post.title.substring(0, 150) + '...' : post.title) : (post.content ? (post.content.length > 150 ? post.content.substring(0, 150) + '...' : post.content) : '');
+                                    const engagement = post.engagement || {};
+                                    const formatNum = (n) => (n >= 1000000 ? (n / 1000000).toFixed(1) + 'M' : n >= 1000 ? (n / 1000).toFixed(1) + 'K' : (n || 0).toString());
+                                    const isYouTube = post.platform === 'youtube';
+                                    return (
+                                        <div key={post._id || post.externalId} className="topic-card">
+                                            <div className="topic-header">
+                                                <div style={{ flex: 1 }}>
+                                                    {platformLabel && (
+                                                        <span className="topic-category">{platformLabel}</span>
+                                                    )}
+                                                    <h3 className="topic-title">{sourceDisplayName}</h3>
+                                                </div>
+                                            </div>
+                                            {contentSnippet && (
+                                                <p className="topic-summary" onClick={() => handleSocialPostClick(post)} style={{ cursor: 'pointer' }}>
+                                                    {contentSnippet}
+                                                </p>
+                                            )}
+                                            <div className="topic-meta">
+                                                <span style={{ fontSize: '0.8125rem', color: 'var(--text-light)' }}>
+                                                    {new Date(post.publishedAt || post.updatedAt).toLocaleDateString('zh-TW')}
                                                 </span>
-                                                <div className="social-feed-handle-info">
-                                                    <div className="social-feed-handle-name">
-                                                        {post.author?.displayName || post.author?.handle || post.handle}
-                                                    </div>
-                                                    {post.author?.handle && (
-                                                        <div className="social-feed-handle-username">
-                                                            @{post.author.handle}
-                                                        </div>
+                                                <span style={{ fontSize: '0.8125rem', color: 'var(--text-light)' }}>
+                                                    {isYouTube ? (
+                                                        <>👁️ {formatNum(engagement.views)} · 💬 {formatNum(engagement.comments)}</>
+                                                    ) : (
+                                                        <>👍 {formatNum(engagement.likes)} · 🔄 {formatNum(engagement.reposts)} · 💬 {formatNum(engagement.replies)}</>
                                                     )}
-                                                </div>
+                                                </span>
+                                            </div>
+                                            <div className="topic-actions" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                                                <button
+                                                    className="btn btn-primary btn-sm"
+                                                    onClick={(e) => { e.stopPropagation(); onGenerateArticleFromSocialPost && onGenerateArticleFromSocialPost(post); }}
+                                                    title="從此貼文寫文章"
+                                                >
+                                                    從此主題寫文章
+                                                </button>
+                                                <button
+                                                    className="btn btn-outline btn-sm"
+                                                    onClick={() => handleSocialPostClick(post)}
+                                                    title="查看貼文詳情"
+                                                >
+                                                    查看詳情
+                                                </button>
+                                                <button
+                                                    className="btn btn-danger btn-sm"
+                                                    onClick={() => onRemoveSocialPostFromDraft(post._id || post.externalId)}
+                                                    style={{ flex: '0 0 auto' }}
+                                                >
+                                                    移除
+                                                </button>
+                                                <button
+                                                    className="card-copy-btn"
+                                                    onClick={(e) => { e.stopPropagation(); handleCopySocialFeedId(post); }}
+                                                    title="複製貼文 ID"
+                                                    style={{ marginLeft: 'auto' }}
+                                                >
+                                                    複製 ID
+                                                </button>
                                             </div>
                                         </div>
-                                        <div className="social-posts-list">
-                                            <div 
-                                                className="social-post-row" 
-                                                onClick={() => handleSocialPostClick(post)}
-                                                style={{ cursor: 'pointer' }}
-                                            >
-                                                <div className="social-post-content">
-                                                    {(post.title || post.content) && (
-                                                        <div style={{ fontSize: '0.875rem', color: 'var(--text)', marginBottom: '0.5rem', lineHeight: '1.5' }}>
-                                                            {post.title || (post.content ? (post.content.length > 150 ? post.content.substring(0, 150) + '...' : post.content) : '')}
-                                                        </div>
-                                                    )}
-                                                    <div className="social-post-meta">
-                                                        <span style={{ fontSize: '0.7rem', color: 'var(--text-light)' }}>
-                                                            {new Date(post.updatedAt || post.publishedAt).toLocaleDateString('zh-TW')}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div style={{ padding: '0.75rem', borderTop: '1px solid var(--border)' }}>
-                                            <button
-                                                className="btn btn-danger btn-sm"
-                                                onClick={() => onRemoveSocialPostFromDraft(post._id || post.externalId)}
-                                                style={{ width: '100%' }}
-                                            >
-                                                移除
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
                     )}
@@ -3039,14 +3211,152 @@
             );
         }
 
-        function WriterCentralPage() {
+        function WriterCentralPage({ showMessage, isActive, pendingWriterJobId, onConsumeJobId }) {
+            const [jobId, setJobId] = useState(null);
+            const [article, setArticle] = useState(null);
+            const [myArticles, setMyArticles] = useState([]);
+            const [loadingArticles, setLoadingArticles] = useState(false);
+            const token = localStorage.getItem('jwt_token');
+            const headers = token ? { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
+
+            useEffect(() => {
+                if (pendingWriterJobId && typeof onConsumeJobId === 'function') {
+                    setJobId(pendingWriterJobId);
+                    onConsumeJobId();
+                }
+            }, [pendingWriterJobId, onConsumeJobId]);
+
+            const loadMyArticles = useCallback(async () => {
+                const t = localStorage.getItem('jwt_token');
+                if (!t) return;
+                setLoadingArticles(true);
+                try {
+                    const res = await fetch('/api/writer/articles', { headers: { 'Authorization': `Bearer ${t}` } });
+                    const data = await res.json().catch(() => ({}));
+                    if (res.ok && data.status === 'success' && Array.isArray(data.data)) {
+                        setMyArticles(data.data);
+                    } else {
+                        if (showMessage && !res.ok) showMessage(data.message || '無法載入文章列表', 'error');
+                    }
+                } catch (e) {
+                    if (showMessage) showMessage('無法載入文章列表', 'error');
+                } finally {
+                    setLoadingArticles(false);
+                }
+            }, [showMessage]);
+
+            useEffect(() => {
+                if (isActive) loadMyArticles();
+            }, [isActive, loadMyArticles]);
+
+            useEffect(() => {
+                if (!jobId || !token) return;
+                let cancelled = false;
+                const poll = async () => {
+                    if (cancelled) return;
+                    try {
+                        const res = await fetch(`/api/writer/jobs/${jobId}`, { headers: { 'Authorization': `Bearer ${token}` } });
+                        if (cancelled) return;
+                        if (!res.ok) { setTimeout(poll, 2500); return; }
+                        const data = await res.json();
+                        if (data.status === 'completed') {
+                            setJobId(null);
+                            if (data.articleId) {
+                                const aRes = await fetch(`/api/writer/articles/${data.articleId}`, { headers: { 'Authorization': `Bearer ${token}` } });
+                                if (aRes.ok) {
+                                    const aData = await aRes.json();
+                                    setArticle(aData);
+                                    if (showMessage) showMessage('文章已生成', 'success');
+                                }
+                                loadMyArticles();
+                            }
+                            return;
+                        }
+                        if (data.status === 'failed') {
+                            setJobId(null);
+                            if (showMessage) showMessage(data.error || '生成失敗', 'error');
+                            return;
+                        }
+                    } catch (e) {
+                        if (showMessage) showMessage('輪詢錯誤', 'error');
+                    }
+                    if (!cancelled) setTimeout(poll, 2500);
+                };
+                const t = setTimeout(poll, 2500);
+                return () => { cancelled = true; clearTimeout(t); };
+            }, [jobId, token, showMessage, loadMyArticles]);
+
+            const handleViewArticle = async (id) => {
+                try {
+                    const res = await fetch(`/api/writer/articles/${id}`, { headers: { 'Authorization': `Bearer ${token}` } });
+                    if (res.ok) {
+                        const data = await res.json();
+                        setArticle(data);
+                    }
+                } catch (e) {
+                    if (showMessage) showMessage('無法載入文章', 'error');
+                }
+            };
+
             return (
                 <div className="main-content">
-                    <div className="empty-state">
-                        <div className="empty-state-icon">✍️</div>
-                        <h3>寫作中心</h3>
-                        <p>此功能即將推出</p>
+                    <div style={{ marginBottom: '2rem' }}>
+                        <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.5rem' }}>寫作中心</h2>
+                        <p style={{ color: 'var(--text-light)', fontSize: '0.875rem' }}>
+                            在「素材夾」選擇主題的「從此主題寫文章」即可生成文章。此處僅顯示與管理已生成的文章（可查看、後續編輯）。
+                        </p>
                     </div>
+
+                    {jobId && (
+                        <div style={{ marginBottom: '1rem', padding: '1rem', background: 'var(--bg-secondary)', borderRadius: '8px' }}>
+                            生成中… 請稍候
+                        </div>
+                    )}
+
+                    <div style={{ marginBottom: '2rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                            <h3 style={{ fontSize: '1.125rem', fontWeight: 600, margin: 0 }}>我的文章</h3>
+                            <button
+                                className="btn btn-outline btn-sm"
+                                onClick={() => loadMyArticles()}
+                                disabled={loadingArticles}
+                            >
+                                {loadingArticles ? '載入中…' : '重新載入'}
+                            </button>
+                        </div>
+                        {loadingArticles && myArticles.length === 0 ? (
+                            <p style={{ color: 'var(--text-light)' }}>載入中…</p>
+                        ) : myArticles.length === 0 ? (
+                            <p style={{ color: 'var(--text-light)' }}>尚無文章</p>
+                        ) : (
+                            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                                {myArticles.map(a => (
+                                    <li key={a._id} style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <button
+                                            className="btn btn-outline btn-sm"
+                                            onClick={() => handleViewArticle(a._id)}
+                                        >
+                                            查看
+                                        </button>
+                                        <span>{a.title}</span>
+                                        <span style={{ color: 'var(--text-light)', fontSize: '0.875rem' }}>
+                                            {a.createdAt ? new Date(a.createdAt).toLocaleDateString() : ''}
+                                        </span>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </div>
+
+                    {article && (
+                        <div style={{ marginTop: '2rem', padding: '1.5rem', background: 'var(--bg-secondary)', borderRadius: '8px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                <h3 style={{ margin: 0 }}>{article.title}</h3>
+                                <button className="btn btn-outline btn-sm" onClick={() => setArticle(null)}>關閉</button>
+                            </div>
+                            <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{article.body}</div>
+                        </div>
+                    )}
                 </div>
             );
         }
@@ -3391,6 +3701,12 @@
             const [autoFetchScheduleHours, setAutoFetchScheduleHours] = useState(() => Array(24).fill(false));
             const [savingSchedule, setSavingSchedule] = useState(false);
             const [togglingHandleId, setTogglingHandleId] = useState(null);
+            const [newsFetchScheduleHours, setNewsFetchScheduleHours] = useState(() => Array(24).fill(false));
+            const [savingNewsSchedule, setSavingNewsSchedule] = useState(false);
+            const [editingSource, setEditingSource] = useState(null);
+            const [editSourceForm, setEditSourceForm] = useState({ name: '', type: 'rss', url: '', remark: '', isActive: true });
+            const [togglingSourceId, setTogglingSourceId] = useState(null);
+            const [fetchingSourceId, setFetchingSourceId] = useState(null);
 
             useEffect(() => {
                 loadData();
@@ -3446,6 +3762,18 @@
                         const hours = scheduleData.data?.scheduleHours;
                         if (Array.isArray(hours) && hours.length === 24) {
                             setAutoFetchScheduleHours(hours.map(Boolean));
+                        }
+                    }
+
+                    // Load news fetch schedule
+                    const newsScheduleRes = await fetch('/api/admin/news-fetch-schedule', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (newsScheduleRes.ok) {
+                        const newsScheduleData = await newsScheduleRes.json();
+                        const newsHours = newsScheduleData.data?.scheduleHours;
+                        if (Array.isArray(newsHours) && newsHours.length === 24) {
+                            setNewsFetchScheduleHours(newsHours.map(Boolean));
                         }
                     }
                 } catch (error) {
@@ -3547,6 +3875,125 @@
                     }
                 } catch (error) {
                     showMessage('錯誤: ' + error.message, 'error');
+                }
+            };
+
+            const handleSaveNewsFetchSchedule = async () => {
+                setSavingNewsSchedule(true);
+                try {
+                    const token = localStorage.getItem('jwt_token');
+                    const res = await fetch('/api/admin/news-fetch-schedule', {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ scheduleHours: newsFetchScheduleHours })
+                    });
+                    if (res.ok) {
+                        showMessage('新聞抓取排程已儲存', 'success');
+                    } else {
+                        const data = await res.json();
+                        showMessage(data.message || '儲存失敗', 'error');
+                    }
+                } catch (error) {
+                    showMessage('錯誤: ' + error.message, 'error');
+                } finally {
+                    setSavingNewsSchedule(false);
+                }
+            };
+
+            const handleEditSource = (source) => {
+                setEditingSource(source._id);
+                setEditSourceForm({
+                    name: source.name || '',
+                    type: source.type || 'rss',
+                    url: source.url || '',
+                    remark: source.remark || '',
+                    isActive: source.isActive !== undefined ? source.isActive : true
+                });
+            };
+
+            const handleCancelEditSource = () => {
+                setEditingSource(null);
+                setEditSourceForm({ name: '', type: 'rss', url: '', remark: '', isActive: true });
+            };
+
+            const handleUpdateSource = async (sourceId) => {
+                try {
+                    const token = localStorage.getItem('jwt_token');
+                    const res = await fetch(`/api/admin/sources/${sourceId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(editSourceForm)
+                    });
+                    if (res.ok) {
+                        showMessage('來源更新成功', 'success');
+                        setEditingSource(null);
+                        setEditSourceForm({ name: '', type: 'rss', url: '', remark: '', isActive: true });
+                        loadData();
+                    } else {
+                        const data = await res.json();
+                        showMessage(data.message || '更新失敗', 'error');
+                    }
+                } catch (error) {
+                    showMessage('錯誤: ' + error.message, 'error');
+                }
+            };
+
+            const handleToggleSourceActive = async (sourceId, currentActive) => {
+                setTogglingSourceId(sourceId);
+                try {
+                    const token = localStorage.getItem('jwt_token');
+                    const res = await fetch(`/api/admin/sources/${sourceId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ isActive: !currentActive })
+                    });
+                    if (res.ok) {
+                        setSources(prev => prev.map(s => s._id === sourceId ? { ...s, isActive: !currentActive } : s));
+                        showMessage(currentActive ? '已停用此來源' : '已啟用此來源', 'success');
+                    } else {
+                        const data = await res.json();
+                        showMessage(data.message || '更新失敗', 'error');
+                    }
+                } catch (error) {
+                    showMessage('錯誤: ' + error.message, 'error');
+                } finally {
+                    setTogglingSourceId(null);
+                }
+            };
+
+            const handleFetchSource = async (sourceId) => {
+                if (!sourceId) {
+                    showMessage('無法取得來源 ID', 'error');
+                    return;
+                }
+                setFetchingSourceId(sourceId);
+                try {
+                    const token = localStorage.getItem('jwt_token');
+                    const res = await fetch(`/api/admin/sources/${sourceId}/fetch`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        showMessage(`已獲取 ${data.data.count} 則新聞`, 'success');
+                        loadData();
+                    } else {
+                        const data = await res.json();
+                        showMessage(data.message || '獲取失敗', 'error');
+                    }
+                } catch (error) {
+                    showMessage('錯誤: ' + error.message, 'error');
+                } finally {
+                    setFetchingSourceId(null);
                 }
             };
 
@@ -3890,9 +4337,52 @@
 
                     {activeTab === 'sources' && (
                         <div className="container">
-                            <h2>來源管理</h2>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                                <h2>新聞來源管理</h2>
+                            </div>
+                            <p style={{ color: 'var(--text-light)', marginBottom: '1rem' }}>
+                                管理新聞 RSS/網站來源（與社交媒體排程分開，可獨立設定自動抓取時間）
+                            </p>
+
                             <div style={{ padding: '1rem', background: 'var(--bg)', borderRadius: '8px', marginBottom: '1rem' }}>
-                                <h3>新增來源</h3>
+                                <h3 style={{ marginBottom: '0.5rem' }}>⏰ 新聞自動抓取排程</h3>
+                                <p style={{ fontSize: '0.875rem', color: 'var(--text-light)', marginBottom: '1rem' }}>
+                                    勾選要執行自動抓取的小時（每日在該小時會自動抓取所有已啟用的新聞來源，以伺服器當地時間為準）
+                                </p>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
+                                    {Array.from({ length: 24 }, (_, i) => (
+                                        <label key={i} style={{
+                                            display: 'flex', alignItems: 'center', gap: '0.35rem',
+                                            padding: '0.35rem 0.6rem', background: newsFetchScheduleHours[i] ? 'var(--primary)' : 'var(--card-bg)',
+                                            color: newsFetchScheduleHours[i] ? 'white' : 'var(--text)',
+                                            borderRadius: '6px', border: '1px solid var(--border)',
+                                            cursor: 'pointer', fontSize: '0.8125rem'
+                                        }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={newsFetchScheduleHours[i]}
+                                                onChange={(e) => {
+                                                    const next = [...newsFetchScheduleHours];
+                                                    next[i] = e.target.checked;
+                                                    setNewsFetchScheduleHours(next);
+                                                }}
+                                                style={{ margin: 0 }}
+                                            />
+                                            {i.toString().padStart(2, '0')}:00
+                                        </label>
+                                    ))}
+                                </div>
+                                <button
+                                    className="btn btn-primary btn-sm"
+                                    onClick={handleSaveNewsFetchSchedule}
+                                    disabled={savingNewsSchedule}
+                                >
+                                    {savingNewsSchedule ? '儲存中…' : '儲存排程'}
+                                </button>
+                            </div>
+
+                            <div style={{ padding: '1rem', background: 'var(--bg)', borderRadius: '8px', marginBottom: '1rem' }}>
+                                <h3 style={{ marginBottom: '1rem' }}>新增新聞來源</h3>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr 1fr', gap: '1rem', marginTop: '1rem' }}>
                                     <input
                                         type="text"
@@ -3935,25 +4425,146 @@
                                         padding: '1rem',
                                         background: 'var(--card-bg)',
                                         borderRadius: '8px',
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
                                         border: '1px solid var(--border)'
                                     }}>
-                                        <div>
-                                            <strong>{source.name}</strong> ({source.type})
-                                            <div style={{ fontSize: '0.875rem', color: 'var(--text-light)' }}>
-                                                {source.url} {source.remark && `• ${source.remark}`}
+                                        {editingSource === source._id ? (
+                                            <div>
+                                                <h4 style={{ marginBottom: '1rem' }}>編輯新聞來源</h4>
+                                                <div style={{ display: 'grid', gap: '1rem' }}>
+                                                    <div>
+                                                        <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>名稱</label>
+                                                        <input
+                                                            type="text"
+                                                            className="form-control"
+                                                            placeholder="名稱"
+                                                            value={editSourceForm.name}
+                                                            onChange={(e) => setEditSourceForm({ ...editSourceForm, name: e.target.value })}
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>類型</label>
+                                                        <select
+                                                            className="form-control"
+                                                            value={editSourceForm.type}
+                                                            onChange={(e) => setEditSourceForm({ ...editSourceForm, type: e.target.value })}
+                                                        >
+                                                            <option value="rss">RSS</option>
+                                                            <option value="website">網站</option>
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>網址</label>
+                                                        <input
+                                                            type="text"
+                                                            className="form-control"
+                                                            placeholder="網址"
+                                                            value={editSourceForm.url}
+                                                            onChange={(e) => setEditSourceForm({ ...editSourceForm, url: e.target.value })}
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>備註</label>
+                                                        <input
+                                                            type="text"
+                                                            className="form-control"
+                                                            placeholder="備註（選填）"
+                                                            value={editSourceForm.remark}
+                                                            onChange={(e) => setEditSourceForm({ ...editSourceForm, remark: e.target.value })}
+                                                        />
+                                                    </div>
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={editSourceForm.isActive}
+                                                            onChange={(e) => setEditSourceForm({ ...editSourceForm, isActive: e.target.checked })}
+                                                        />
+                                                        啟用
+                                                    </label>
+                                                </div>
+                                                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
+                                                    <button
+                                                        className="btn btn-outline btn-sm"
+                                                        onClick={handleCancelEditSource}
+                                                    >
+                                                        取消
+                                                    </button>
+                                                    <button
+                                                        className="btn btn-primary btn-sm"
+                                                        onClick={() => handleUpdateSource(source._id)}
+                                                    >
+                                                        儲存
+                                                    </button>
+                                                </div>
                                             </div>
-                                        </div>
-                                        <button
-                                            className="btn btn-danger btn-sm"
-                                            onClick={() => handleDeleteSource(source._id)}
-                                        >
-                                            刪除
-                                        </button>
+                                        ) : (
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+                                                <div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                        <span>{source.type === 'rss' ? '📡' : '🌐'}</span>
+                                                        <strong>{source.name}</strong> ({source.type})
+                                                    </div>
+                                                    <div style={{ fontSize: '0.875rem', color: 'var(--text-light)', marginTop: '0.25rem' }}>
+                                                        {source.url}
+                                                        {source.remark && <span> • {source.remark}</span>}
+                                                    </div>
+                                                    {source.lastFetched && (
+                                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: '0.25rem' }}>
+                                                            最後更新: {new Date(source.lastFetched).toLocaleString('zh-TW')}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-sm"
+                                                        style={{
+                                                            minWidth: '4rem',
+                                                            opacity: togglingSourceId === source._id ? 0.7 : 1,
+                                                            background: source.isActive !== false ? 'var(--success, #28a745)' : 'var(--text-light, #6c757d)',
+                                                            color: '#fff',
+                                                            border: 'none',
+                                                            borderRadius: '6px',
+                                                            padding: '0.35rem 0.6rem',
+                                                            fontSize: '0.8rem',
+                                                            cursor: togglingSourceId === source._id ? 'wait' : 'pointer'
+                                                        }}
+                                                        onClick={(e) => { e.preventDefault(); handleToggleSourceActive(source._id, source.isActive !== false); }}
+                                                        disabled={togglingSourceId === source._id}
+                                                        title={source.isActive !== false ? '點擊停用' : '點擊啟用'}
+                                                    >
+                                                        {togglingSourceId === source._id ? '…' : (source.isActive !== false ? '啟用' : '停用')}
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-outline btn-sm"
+                                                        onClick={(e) => { e.preventDefault(); handleFetchSource(source._id); }}
+                                                        disabled={fetchingSourceId === source._id}
+                                                        title="立即獲取新聞（僅此來源）"
+                                                    >
+                                                        {fetchingSourceId === source._id ? '…' : '🔄 獲取'}
+                                                    </button>
+                                                    <button
+                                                        className="btn btn-outline btn-sm"
+                                                        onClick={() => handleEditSource(source)}
+                                                    >
+                                                        編輯
+                                                    </button>
+                                                    <button
+                                                        className="btn btn-danger btn-sm"
+                                                        onClick={() => handleDeleteSource(source._id)}
+                                                    >
+                                                        刪除
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
+                                {sources.length === 0 && (
+                                    <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-light)' }}>
+                                        尚未新增任何新聞來源
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}

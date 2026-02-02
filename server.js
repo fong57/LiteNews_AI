@@ -48,7 +48,9 @@ mongoose
   .then(() => {
     console.log('✅ Connected to MongoDB');
     const { start: startAutoSocialFetch } = require('./services/autoSocialFetchScheduler');
+    const { start: startAutoNewsFetch } = require('./services/autoNewsFetchScheduler');
     startAutoSocialFetch();
+    startAutoNewsFetch();
   })
   .catch((err) => {
     console.error('❌ MongoDB connection failed:', err.message);
@@ -63,6 +65,8 @@ const newsRoutes = require('./routes/news.js');
 const topicsRoutes = require('./routes/topics.js');
 const adminRoutes = require('./routes/admin.js');
 const socialRoutes = require('./routes/social.js');
+const writerRoutes = require('./routes/writer.js');
+const materialsRoutes = require('./routes/materials.js');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -71,6 +75,8 @@ app.use('/api/news', newsRoutes);
 app.use('/api/topics', topicsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/social', socialRoutes);
+app.use('/api/writer', writerRoutes);
+app.use('/api/materials', materialsRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
