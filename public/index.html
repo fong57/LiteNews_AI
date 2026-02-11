@@ -997,8 +997,11 @@
             const [socialTimeframe, setSocialTimeframe] = useState('24h'); // Default: past 24 hours
             const [socialSort, setSocialSort] = useState('publishedAt'); // Default: sort by publishedAt (首發時間)
             const [socialPostDrafts, setSocialPostDrafts] = useState([]); // Array of social post objects
+            const [urlArticleDrafts, setUrlArticleDrafts] = useState([]); // User-added URL articles (meta extracted)
             const [lastAutoFetchTime, setLastAutoFetchTime] = useState(null);
             const [pendingWriterJobId, setPendingWriterJobId] = useState(null);
+            const [showWriteArticleModal, setShowWriteArticleModal] = useState(false);
+            const [writeArticleSource, setWriteArticleSource] = useState(null); // { type: 'topic'|'socialPost'|'urlArticle', data }
             const [preferences, setPreferences] = useState({
                 sources: [],
                 categories: [],
@@ -1018,6 +1021,7 @@
                         const data = await res.json();
                         setDrafts(data.data?.topics || []);
                         setSocialPostDrafts(data.data?.socialPosts || []);
+                        setUrlArticleDrafts(data.data?.urlArticles || []);
                     }
                 } catch (e) {
                     console.error('Failed to load materials:', e);
@@ -1182,6 +1186,7 @@
                 setTopics([]);
                 setDrafts([]);
                 setSocialPostDrafts([]);
+                setUrlArticleDrafts([]);
                 showMessage('已成功登出', 'success');
             };
 
@@ -1393,15 +1398,69 @@
                 }
             };
 
+            // Remove URL article from draft (persisted to DB)
+            const handleRemoveUrlArticleFromDraft = async (id) => {
+                const token = localStorage.getItem('jwt_token');
+                if (!token) return;
+                try {
+                    const res = await fetch(`/api/materials/url-articles/${id}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (res.ok) {
+                        setUrlArticleDrafts(prev => prev.filter(x => (x._id && x._id.toString()) !== (id && id.toString())));
+                        showMessage('已從素材夾移除', 'success');
+                    } else {
+                        const data = await res.json().catch(() => ({}));
+                        showMessage(data.message || '移除失敗', 'error');
+                    }
+                } catch (e) {
+                    showMessage('移除失敗: ' + e.message, 'error');
+                }
+            };
+
+            // Add URL article to 素材夾 (server extracts meta)
+            const handleAddUrlArticle = async (url) => {
+                const token = localStorage.getItem('jwt_token');
+                if (!token) {
+                    showMessage('請先登入', 'error');
+                    return;
+                }
+                if (!url || !url.trim()) {
+                    showMessage('請輸入連結', 'error');
+                    return;
+                }
+                try {
+                    const res = await fetch('/api/materials/url-articles', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ url: url.trim() })
+                    });
+                    const data = await res.json();
+                    if (res.status === 201 && data.data) {
+                        setUrlArticleDrafts(prev => [...prev, data.data]);
+                        showMessage('已加入素材夾', 'success');
+                        return data.data;
+                    }
+                    if (res.ok && data.message === 'Already in 素材夾') {
+                        showMessage('此連結已在素材夾中', 'info');
+                        return;
+                    }
+                    showMessage(data.message || '加入失敗', 'error');
+                } catch (e) {
+                    showMessage('加入失敗: ' + e.message, 'error');
+                }
+            };
+
             // Show message
             const showMessage = (text, type = 'info') => {
                 setMessage({ text, type });
                 setTimeout(() => setMessage(null), 5000);
             };
 
-            const handleStartArticleFromTopic = async (topic) => {
-                if (!topic || !topic._id) {
-                    showMessage('請選擇主題', 'error');
+            const handleOpenWriteArticleModal = (sourceType, data) => {
+                if (!data || !data._id) {
+                    showMessage(sourceType === 'topic' ? '請選擇主題' : sourceType === 'urlArticle' ? '請選擇連結' : '請選擇貼文', 'error');
                     return;
                 }
                 const token = localStorage.getItem('jwt_token');
@@ -1409,42 +1468,30 @@
                     showMessage('請先登入', 'error');
                     return;
                 }
-                try {
-                    const res = await fetch('/api/writer/generate', {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ topicId: topic._id, options: { language: 'zh-TW' } })
-                    });
-                    const data = await res.json();
-                    if (res.status === 201 && data.jobId) {
-                        setPendingWriterJobId(data.jobId);
-                        setCurrentRoute('writer');
-                        showMessage('已開始生成文章，請在寫作中心查看', 'info');
-                    } else {
-                        showMessage(data.message || '發起失敗', 'error');
-                    }
-                } catch (e) {
-                    showMessage('請求錯誤: ' + e.message, 'error');
-                }
+                setWriteArticleSource({ type: sourceType, data });
+                setShowWriteArticleModal(true);
             };
 
-            const handleStartArticleFromSocialPost = async (post) => {
-                if (!post || !post._id) {
-                    showMessage('請選擇貼文', 'error');
-                    return;
-                }
+            const handleConfirmWriteArticle = async (formOptions) => {
+                if (!writeArticleSource || !writeArticleSource.data) return;
                 const token = localStorage.getItem('jwt_token');
                 if (!token) {
                     showMessage('請先登入', 'error');
                     return;
                 }
+                const body = { options: { language: 'zh-TW', ...formOptions } };
+                if (writeArticleSource.type === 'topic') body.topicId = writeArticleSource.data._id;
+                else if (writeArticleSource.type === 'socialPost') body.socialPostId = writeArticleSource.data._id;
+                else if (writeArticleSource.type === 'urlArticle') body.urlArticleId = writeArticleSource.data._id;
                 try {
                     const res = await fetch('/api/writer/generate', {
                         method: 'POST',
                         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ socialPostId: post._id, options: { language: 'zh-TW' } })
+                        body: JSON.stringify(body)
                     });
                     const data = await res.json();
+                    setShowWriteArticleModal(false);
+                    setWriteArticleSource(null);
                     if (res.status === 201 && data.jobId) {
                         setPendingWriterJobId(data.jobId);
                         setCurrentRoute('writer');
@@ -1643,10 +1690,15 @@
                     <DraftPage
                         drafts={drafts}
                         socialPostDrafts={socialPostDrafts}
+                        urlArticleDrafts={urlArticleDrafts}
                         onRemoveFromDraft={handleRemoveFromDraft}
                         onRemoveSocialPostFromDraft={handleRemoveSocialPostFromDraft}
-                        onGenerateArticle={handleStartArticleFromTopic}
-                        onGenerateArticleFromSocialPost={handleStartArticleFromSocialPost}
+                        onRemoveUrlArticleFromDraft={handleRemoveUrlArticleFromDraft}
+                        onGenerateArticle={(topic) => handleOpenWriteArticleModal('topic', topic)}
+                        onGenerateArticleFromSocialPost={(post) => handleOpenWriteArticleModal('socialPost', post)}
+                        onGenerateArticleFromUrlArticle={(item) => handleOpenWriteArticleModal('urlArticle', item)}
+                        onAddUrlArticle={handleAddUrlArticle}
+                        showMessage={showMessage}
                         topicFeedback={topicFeedback}
                         onFeedback={handleFeedback}
                     />
@@ -1737,6 +1789,15 @@
                                 setShowPreferences(false);
                                 showMessage('偏好設定已儲存！', 'success');
                             }}
+                        />
+                    )}
+
+                    {showWriteArticleModal && writeArticleSource && (
+                        <WriteArticleModal
+                            open={showWriteArticleModal}
+                            source={writeArticleSource}
+                            onClose={() => { setShowWriteArticleModal(false); setWriteArticleSource(null); }}
+                            onConfirm={handleConfirmWriteArticle}
                         />
                     )}
                 </div>
@@ -2978,11 +3039,54 @@
             );
         }
 
-        function DraftPage({ drafts, socialPostDrafts = [], onRemoveFromDraft, onRemoveSocialPostFromDraft, onGenerateArticle, onGenerateArticleFromSocialPost, topicFeedback, onFeedback }) {
+        function WriteArticleModal({ open, source, onClose, onConfirm }) {
+            const [articleType, setArticleType] = useState('懶人包');
+            const [length, setLength] = useState('medium');
+            const [extraInstructions, setExtraInstructions] = useState('');
+            const sourceTitle = source?.data?.title || source?.data?.content?.slice?.(0, 60) || source?.data?.url || '此主題';
+            return open ? (
+                <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }} onClick={(e) => e.target === e.currentTarget && onClose()}>
+                    <div className="modal-content" style={{ background: 'var(--bg)', borderRadius: 'var(--radius)', padding: '1.5rem', maxWidth: '420px', width: '90%', boxShadow: 'var(--shadow)' }} onClick={e => e.stopPropagation()}>
+                        <h3 style={{ marginBottom: '1rem', fontSize: '1.25rem' }}>從此主題寫文章</h3>
+                        <p style={{ color: 'var(--text-light)', fontSize: '0.875rem', marginBottom: '1rem' }}>來源：{sourceTitle}{sourceTitle.length >= 50 ? '…' : ''}</p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                                <span style={{ fontWeight: 500 }}>文章類型</span>
+                                <select className="form-control" value={articleType} onChange={e => setArticleType(e.target.value)}>
+                                    <option value="懶人包">懶人包</option>
+                                    <option value="多方觀點">多方觀點</option>
+                                    <option value="其他">其他</option>
+                                </select>
+                            </label>
+                            <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                                <span style={{ fontWeight: 500 }}>文章長度</span>
+                                <select className="form-control" value={length} onChange={e => setLength(e.target.value)}>
+                                    <option value="short">短（約 500 字）</option>
+                                    <option value="medium">中（約 800–1000 字）</option>
+                                    <option value="long">長（約 1500 字以上）</option>
+                                </select>
+                            </label>
+                            <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                                <span style={{ fontWeight: 500 }}>補充說明（選填）</span>
+                                <textarea className="form-control" rows={3} placeholder="例如：著重數據、避免主觀評價、加入時間軸…" value={extraInstructions} onChange={e => setExtraInstructions(e.target.value)} style={{ resize: 'vertical' }} />
+                            </label>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1.25rem' }}>
+                            <button type="button" className="btn btn-outline" onClick={onClose}>取消</button>
+                            <button type="button" className="btn btn-primary" onClick={() => onConfirm({ articleType, length, extraInstructions: extraInstructions.trim() })}>開始撰寫</button>
+                        </div>
+                    </div>
+                </div>
+            ) : null;
+        }
+
+        function DraftPage({ drafts, socialPostDrafts = [], urlArticleDrafts = [], onRemoveFromDraft, onRemoveSocialPostFromDraft, onRemoveUrlArticleFromDraft, onGenerateArticle, onGenerateArticleFromSocialPost, onGenerateArticleFromUrlArticle, onAddUrlArticle, showMessage, topicFeedback, onFeedback }) {
             const [showModal, setShowModal] = useState(false);
             const [selectedTopic, setSelectedTopic] = useState(null);
             const [showSocialPostModal, setShowSocialPostModal] = useState(false);
             const [selectedSocialPost, setSelectedSocialPost] = useState(null);
+            const [urlInput, setUrlInput] = useState('');
+            const [addingUrl, setAddingUrl] = useState(false);
 
             const handleTopicClick = (topic) => {
                 setSelectedTopic(topic);
@@ -2998,10 +3102,10 @@
             const handleCopyTopicId = async (topicId) => {
                 try {
                     await navigator.clipboard.writeText(String(topicId || ''));
-                    showMessage('已複製主題 ID', 'success');
+                    showMessage && showMessage('已複製主題 ID', 'success');
                 } catch (err) {
                     console.error('copy failed', err);
-                    showMessage('複製失敗', 'error');
+                    showMessage && showMessage('複製失敗', 'error');
                 }
             };
 
@@ -3010,23 +3114,62 @@
                 const idToCopy = post?._id || post?.externalId || '';
                 try {
                     await navigator.clipboard.writeText(String(idToCopy));
-                    showMessage('已複製貼文 ID', 'success');
+                    showMessage && showMessage('已複製貼文 ID', 'success');
                 } catch (err) {
                     console.error('copy failed', err);
-                    showMessage('複製失敗', 'error');
+                    showMessage && showMessage('複製失敗', 'error');
                 }
             };
 
-            const totalDrafts = drafts.length + socialPostDrafts.length;
+            const totalDrafts = drafts.length + socialPostDrafts.length + urlArticleDrafts.length;
+
+            const handleSubmitUrl = async (e) => {
+                e.preventDefault();
+                if (!urlInput.trim() || !onAddUrlArticle) return;
+                setAddingUrl(true);
+                try {
+                    await onAddUrlArticle(urlInput.trim());
+                    setUrlInput('');
+                } finally {
+                    setAddingUrl(false);
+                }
+            };
 
             if (totalDrafts === 0) {
                 return (
                     <div className="main-content">
-                        <div className="empty-state">
+                        <div style={{ marginBottom: '2rem' }}>
+                            <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '1rem' }}>
+                                素材夾
+                            </h2>
+                            <p style={{ color: 'var(--text-light)', fontSize: '0.875rem' }}>
+                                從「主題發現」或「社交主題」加入內容，或輸入新聞連結加入素材夾
+                            </p>
+                        </div>
+                        <div className="empty-state" style={{ marginBottom: '2rem' }}>
                             <div className="empty-state-icon">📝</div>
                             <h3>素材夾是空的</h3>
-                            <p>從「主題發現」或「社交主題」頁面將內容加入素材夾</p>
+                            <p>從「主題發現」或「社交主題」頁面將內容加入素材夾，或使用下方輸入連結</p>
                         </div>
+                        {/* URL input - always show so user can add first item */}
+                        {onAddUrlArticle && (
+                            <div style={{ maxWidth: '36rem', marginTop: '1.5rem' }}>
+                                <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.5rem', fontSize: '0.9375rem' }}>加入新聞連結</label>
+                                <form onSubmit={handleSubmitUrl} style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                    <input
+                                        type="url"
+                                        placeholder="https://..."
+                                        value={urlInput}
+                                        onChange={(e) => setUrlInput(e.target.value)}
+                                        disabled={addingUrl}
+                                        style={{ flex: '1 1 280px', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)', fontSize: '0.9375rem' }}
+                                    />
+                                    <button type="submit" className="btn btn-primary" disabled={addingUrl || !urlInput.trim()}>
+                                        {addingUrl ? '加入中...' : '加入素材夾'}
+                                    </button>
+                                </form>
+                            </div>
+                        )}
                     </div>
                 );
             }
@@ -3038,9 +3181,29 @@
                             素材夾 ({totalDrafts})
                         </h2>
                         <p style={{ color: 'var(--text-light)', fontSize: '0.875rem' }}>
-                            您已儲存的主題和社交貼文列表，可在此進行進一步操作
+                            您已儲存的主題、社交貼文與自訂連結列表，可在此進行進一步操作
                         </p>
                     </div>
+
+                    {/* Add URL input */}
+                    {onAddUrlArticle && (
+                        <div style={{ marginBottom: '2rem', maxWidth: '36rem' }}>
+                            <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.5rem', fontSize: '0.9375rem' }}>加入新聞連結</label>
+                            <form onSubmit={handleSubmitUrl} style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                <input
+                                    type="url"
+                                    placeholder="https://..."
+                                    value={urlInput}
+                                    onChange={(e) => setUrlInput(e.target.value)}
+                                    disabled={addingUrl}
+                                    style={{ flex: '1 1 280px', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)', fontSize: '0.9375rem' }}
+                                />
+                                <button type="submit" className="btn btn-primary" disabled={addingUrl || !urlInput.trim()}>
+                                    {addingUrl ? '加入中...' : '加入素材夾'}
+                                </button>
+                            </form>
+                        </div>
+                    )}
 
                     {/* Topic Drafts */}
                     {drafts.length > 0 && (
@@ -3188,6 +3351,76 @@
                         </div>
                     )}
 
+                    {/* URL Article Drafts - user-added links (same card layout as topic/social) */}
+                    {urlArticleDrafts.length > 0 && (
+                        <div style={{ marginBottom: '2rem' }}>
+                            <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1rem' }}>
+                                自訂連結 ({urlArticleDrafts.length})
+                            </h3>
+                            <div className="topics-grid">
+                                {urlArticleDrafts.map(item => {
+                                    const titleDisplay = item.title && item.title.trim() ? item.title : item.url || '連結';
+                                    const descSnippet = item.description ? (item.description.length > 150 ? item.description.substring(0, 150) + '...' : item.description) : '';
+                                    const siteLabel = item.siteName || '連結';
+                                    return (
+                                        <div key={item._id} className="topic-card">
+                                            <div className="topic-header">
+                                                <div style={{ flex: 1 }}>
+                                                    <span className="topic-category">{siteLabel}</span>
+                                                    <h3 className="topic-title">{titleDisplay}</h3>
+                                                </div>
+                                            </div>
+                                            {item.image && (
+                                                <div style={{ marginBottom: '0.75rem', borderRadius: 'var(--radius)', overflow: 'hidden', maxHeight: '140px' }}>
+                                                    <img src={item.image} alt="" style={{ width: '100%', height: 'auto', objectFit: 'cover', display: 'block' }} />
+                                                </div>
+                                            )}
+                                            {descSnippet && (
+                                                <p className="topic-summary">{descSnippet}</p>
+                                            )}
+                                            <div className="topic-meta">
+                                                <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.8125rem', color: 'var(--text-light)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', maxWidth: '100%' }} title={item.url}>
+                                                    {item.url}
+                                                </a>
+                                            </div>
+                                            <div className="topic-actions" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                                                <button
+                                                    className="btn btn-primary btn-sm"
+                                                    onClick={(e) => { e.stopPropagation(); onGenerateArticleFromUrlArticle && onGenerateArticleFromUrlArticle(item); }}
+                                                    title="從此連結寫文章"
+                                                >
+                                                    從此主題寫文章
+                                                </button>
+                                                <button
+                                                    className="btn btn-outline btn-sm"
+                                                    onClick={() => window.open(item.url, '_blank')}
+                                                    title="開啟連結"
+                                                >
+                                                    開啟連結
+                                                </button>
+                                                <button
+                                                    className="btn btn-danger btn-sm"
+                                                    onClick={() => onRemoveUrlArticleFromDraft && onRemoveUrlArticleFromDraft(item._id)}
+                                                    style={{ flex: '0 0 auto' }}
+                                                >
+                                                    移除
+                                                </button>
+                                                <button
+                                                    className="card-copy-btn"
+                                                    onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(item._id); showMessage && showMessage('已複製 ID', 'success'); }}
+                                                    title="複製 ID"
+                                                    style={{ marginLeft: 'auto' }}
+                                                >
+                                                    複製 ID
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
                     {showModal && selectedTopic && (
                         <TopicModal
                             topic={selectedTopic}
@@ -3266,6 +3499,8 @@
                                 if (aRes.ok) {
                                     const aData = await aRes.json();
                                     setArticle(aData);
+                                    setFinalDraft(aData.finalBody || '');
+                                    setExpandedId(data.articleId);
                                     if (showMessage) showMessage('文章已生成', 'success');
                                 }
                                 loadMyArticles();
@@ -3286,16 +3521,97 @@
                 return () => { cancelled = true; clearTimeout(t); };
             }, [jobId, token, showMessage, loadMyArticles]);
 
+            const [savingFinal, setSavingFinal] = useState(false);
+            const [finalDraft, setFinalDraft] = useState('');
+            const [expandedId, setExpandedId] = useState(null);
+
             const handleViewArticle = async (id) => {
+                if (expandedId === id) {
+                    setExpandedId(null);
+                    setArticle(null);
+                    return;
+                }
                 try {
                     const res = await fetch(`/api/writer/articles/${id}`, { headers: { 'Authorization': `Bearer ${token}` } });
                     if (res.ok) {
                         const data = await res.json();
                         setArticle(data);
+                        setFinalDraft(data.finalBody || '');
+                        setExpandedId(id);
                     }
                 } catch (e) {
                     if (showMessage) showMessage('無法載入文章', 'error');
                 }
+            };
+
+            const handleSaveFinalVersion = async () => {
+                if (!article || !article._id) return;
+                setSavingFinal(true);
+                try {
+                    const res = await fetch(`/api/writer/articles/${article._id}`, {
+                        method: 'PATCH',
+                        headers,
+                        body: JSON.stringify({ finalBody: finalDraft })
+                    });
+                    const data = await res.json();
+                    if (res.ok && data.status === 'success') {
+                        setArticle(prev => prev ? { ...prev, finalBody: finalDraft, hasFinalVersion: data.hasFinalVersion } : null);
+                        setMyArticles(prev => prev.map(a => a._id === article._id ? { ...a, hasFinalVersion: data.hasFinalVersion } : a));
+                        if (showMessage) showMessage(data.message || '已儲存', 'success');
+                    } else {
+                        if (showMessage) showMessage(data.message || '儲存失敗', 'error');
+                    }
+                } catch (e) {
+                    if (showMessage) showMessage('儲存失敗: ' + e.message, 'error');
+                } finally {
+                    setSavingFinal(false);
+                }
+            };
+
+            const handleDeleteArticle = async (id, e) => {
+                if (e) e.stopPropagation();
+                if (!window.confirm('確定要刪除此文章？')) return;
+                try {
+                    const res = await fetch(`/api/writer/articles/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+                    const data = await res.json();
+                    if (res.ok && data.status === 'success') {
+                        setMyArticles(prev => prev.filter(a => a._id !== id));
+                        if (article && article._id === id) { setArticle(null); setExpandedId(null); }
+                        if (showMessage) showMessage('已刪除', 'success');
+                    } else {
+                        if (showMessage) showMessage(data.message || '刪除失敗', 'error');
+                    }
+                } catch (e) {
+                    if (showMessage) showMessage('刪除失敗: ' + e.message, 'error');
+                }
+            };
+
+            const renderRunLog = (runLog) => {
+                if (!runLog || typeof runLog !== 'object') return <p style={{ color: 'var(--text-light)', fontSize: '0.875rem' }}>無流程紀錄</p>;
+                const sections = [
+                    { key: 'topic', label: '輸入主題', data: runLog.topic },
+                    { key: 'options', label: '寫作選項', data: runLog.options },
+                    { key: 'researchResults', label: '研究結果 (research)', data: runLog.researchResults },
+                    { key: 'outline', label: '大綱 (makeOutline)', data: runLog.outline },
+                    { key: 'rawDraft', label: '初稿 (draft)', data: runLog.rawDraft },
+                    { key: 'factCheckResults', label: '事實核查 (factCheck)', data: runLog.factCheckResults },
+                    { key: 'factCheckScore', label: '事實核查分數', data: runLog.factCheckScore },
+                    { key: 'revisedDraft', label: '修訂稿 (revise)', data: runLog.revisedDraft },
+                    { key: 'finalReview', label: '最終審閱 (doFinalReview)', data: runLog.finalReview },
+                    { key: 'finalArticle', label: '輸出文章 (format)', data: runLog.finalArticle }
+                ];
+                return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        {sections.map(({ key, label, data }) => (
+                            <div key={key} style={{ border: '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden' }}>
+                                <div style={{ padding: '0.5rem 0.75rem', background: 'var(--bg)', fontWeight: 600, fontSize: '0.875rem' }}>{label}</div>
+                                <pre style={{ margin: 0, padding: '0.75rem', fontSize: '0.8125rem', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: '280px', overflow: 'auto', background: 'var(--bg-secondary)' }}>
+                                    {data == null ? '—' : typeof data === 'string' ? data : JSON.stringify(data, null, 2)}
+                                </pre>
+                            </div>
+                        ))}
+                    </div>
+                );
             };
 
             return (
@@ -3331,32 +3647,87 @@
                         ) : (
                             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                                 {myArticles.map(a => (
-                                    <li key={a._id} style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                        <button
-                                            className="btn btn-outline btn-sm"
-                                            onClick={() => handleViewArticle(a._id)}
-                                        >
-                                            查看
-                                        </button>
-                                        <span>{a.title}</span>
-                                        <span style={{ color: 'var(--text-light)', fontSize: '0.875rem' }}>
-                                            {a.createdAt ? new Date(a.createdAt).toLocaleDateString() : ''}
-                                        </span>
+                                    <li key={a._id} style={{ marginBottom: '0.5rem' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                            <button
+                                                className="btn btn-outline btn-sm"
+                                                onClick={() => handleViewArticle(a._id)}
+                                            >
+                                                {expandedId === a._id ? '收合' : '查看'}
+                                            </button>
+                                            <button
+                                                className="btn btn-danger btn-sm"
+                                                onClick={(e) => handleDeleteArticle(a._id, e)}
+                                                title="刪除此文章"
+                                            >
+                                                刪除
+                                            </button>
+                                            <span style={{ flex: '1 1 200px', minWidth: 0 }}>{a.title}</span>
+                                            {a.hasFinalVersion && (
+                                                <span style={{ color: 'var(--success)', fontWeight: 600, fontSize: '0.875rem' }}>完成</span>
+                                            )}
+                                            <span style={{ color: 'var(--text-light)', fontSize: '0.875rem' }}>
+                                                {a.createdAt ? new Date(a.createdAt).toLocaleDateString() : ''}
+                                            </span>
+                                        </div>
+                                        {expandedId === a._id && article && article._id === a._id && (
+                                            <div style={{ marginTop: '1rem', padding: '1.5rem', background: 'var(--bg-secondary)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+                                                    <button className="btn btn-outline btn-sm" onClick={() => { setExpandedId(null); setArticle(null); }}>關閉</button>
+                                                </div>
+                                                <section style={{ marginBottom: '2rem' }}>
+                                                    <h4 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.75rem' }}>1. 生成文章</h4>
+                                                    <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{article.body}</div>
+                                                </section>
+                                                <section style={{ marginBottom: '2rem' }}>
+                                                    <h4 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.75rem' }}>2. 參考連結（註腳）</h4>
+                                                    {(article.references && article.references.length > 0) ? (
+                                                        <ol style={{ paddingLeft: '1.5rem', margin: 0 }}>
+                                                            {article.references.map((ref, idx) => (
+                                                                <li key={idx} style={{ marginBottom: '0.35rem' }}>
+                                                                    <a href={ref.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)' }}>{ref.title || ref.url}</a>
+                                                                    {ref.url && ref.url !== (ref.title || '') && (
+                                                                        <span style={{ color: 'var(--text-light)', fontSize: '0.875rem' }}> — {ref.url}</span>
+                                                                    )}
+                                                                </li>
+                                                            ))}
+                                                        </ol>
+                                                    ) : (
+                                                        <p style={{ color: 'var(--text-light)', fontSize: '0.875rem' }}>無參考連結</p>
+                                                    )}
+                                                </section>
+                                                <section style={{ marginBottom: '2rem' }}>
+                                                    <h4 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.75rem' }}>3. 最終版本（貼上並儲存）</h4>
+                                                    <textarea
+                                                        className="form-control"
+                                                        rows={10}
+                                                        placeholder="在此貼上或輸入最終版本內容，然後按「儲存最終版本」"
+                                                        value={finalDraft}
+                                                        onChange={e => setFinalDraft(e.target.value)}
+                                                        style={{ width: '100%', resize: 'vertical', minHeight: '200px' }}
+                                                    />
+                                                    <div style={{ marginTop: '0.5rem' }}>
+                                                        <button
+                                                            type="button"
+                                                            className="btn btn-primary"
+                                                            onClick={handleSaveFinalVersion}
+                                                            disabled={savingFinal}
+                                                        >
+                                                            {savingFinal ? '儲存中…' : '儲存最終版本'}
+                                                        </button>
+                                                    </div>
+                                                </section>
+                                                <section>
+                                                    <h4 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.75rem' }}>4. 撰寫流程紀錄（節點輸入/輸出）</h4>
+                                                    {renderRunLog(article.runLog)}
+                                                </section>
+                                            </div>
+                                        )}
                                     </li>
                                 ))}
                             </ul>
                         )}
                     </div>
-
-                    {article && (
-                        <div style={{ marginTop: '2rem', padding: '1.5rem', background: 'var(--bg-secondary)', borderRadius: '8px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                                <h3 style={{ margin: 0 }}>{article.title}</h3>
-                                <button className="btn btn-outline btn-sm" onClick={() => setArticle(null)}>關閉</button>
-                            </div>
-                            <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{article.body}</div>
-                        </div>
-                    )}
                 </div>
             );
         }

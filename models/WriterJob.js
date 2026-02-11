@@ -18,6 +18,11 @@ const writerJobSchema = new mongoose.Schema({
     ref: 'SocialPost',
     default: null
   },
+  urlArticleId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'SavedUrlArticle',
+    default: null
+  },
   status: {
     type: String,
     enum: ['pending', 'running', 'completed', 'failed'],
@@ -36,8 +41,14 @@ const writerJobSchema = new mongoose.Schema({
   options: {
     tone: { type: String, default: 'neutral' },
     length: { type: String, default: 'medium' },
-    language: { type: String, default: 'zh-TW' }
-  }
+    language: { type: String, default: 'zh-TW' },
+    articleType: { type: String, default: '懶人包' },
+    extraInstructions: { type: String, default: '' },
+    targetAudience: { type: String, default: 'general' },
+    publication: { type: String, default: 'LiteNews' },
+    maxResearchArticles: { type: Number, default: 8 }
+  },
+  runLog: { type: mongoose.Schema.Types.Mixed, default: null }
 }, {
   timestamps: true
 });

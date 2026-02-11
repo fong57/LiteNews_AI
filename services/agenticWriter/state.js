@@ -6,10 +6,16 @@
  * State passed between nodes:
  * - topic: { title, summary, category, tags } (plain object from Topic)
  * - newsItems: Array<{ title, description, content?, url }> (plain objects from NewsItem)
- * - options: { tone, length, language }
+ * - options: WriterJobOptions (tone, length, language, articleType, extraInstructions, etc.)
+ * - researchResults: Array<{ title, url, snippet, content }> from web search
  * - outline: { headline, sections: string[] } | null
  * - rawDraft: string | null
  * - revisedDraft: string | null
+ * - factCheckResults: { claims, score } | null
+ * - factCheckScore: number | null
+ * - styleNotes: any
+ * - finalReview: { issues, suggestedFixes, overallAssessment } | null
+ * - readyForPublish: boolean | null
  * - finalArticle: { title, body } | null
  * - error: string | null
  */

@@ -1,4 +1,4 @@
-// routes/materials.js - 素材夾 API (saved topics and social posts persisted to DB)
+// routes/materials.js - 素材夾 API (saved topics, social posts, and URL articles persisted to DB)
 const express = require('express');
 const mongoose = require('mongoose');
 const router = express.Router();
@@ -6,11 +6,13 @@ const { protect } = require('../middleware/auth');
 const User = require('../models/User');
 const Topic = require('../models/Topic');
 const SocialPost = require('../models/SocialPost');
+const SavedUrlArticle = require('../models/SavedUrlArticle');
 const { findUserByIdOrName } = require('../utils/userHelper');
+const { extractUrlMeta, normalizeUrl } = require('../utils/extractUrlMeta');
 
 router.use(protect);
 
-// GET /api/materials - current user's saved topics and social posts (populated)
+// GET /api/materials - current user's saved topics, social posts, and URL articles (populated)
 router.get('/', async (req, res) => {
   try {
     const userDoc = await findUserByIdOrName(req.user.userId);
@@ -21,14 +23,16 @@ router.get('/', async (req, res) => {
     const user = await User.findById(userDoc._id)
       .populate('savedTopics')
       .populate({ path: 'savedSocialPosts', populate: { path: 'handleId', select: 'displayName handle' } })
+      .populate('savedUrlArticles')
       .lean();
 
     const topics = (user.savedTopics || []).filter(Boolean);
     const socialPosts = (user.savedSocialPosts || []).filter(Boolean);
+    const urlArticles = (user.savedUrlArticles || []).filter(Boolean);
 
     res.json({
       status: 'success',
-      data: { topics, socialPosts }
+      data: { topics, socialPosts, urlArticles }
     });
   } catch (error) {
     res.status(500).json({ status: 'error', message: error.message });
@@ -144,6 +148,92 @@ router.delete('/social-posts/:socialPostId', async (req, res) => {
       id => id.toString() !== socialPostId
     );
     await user.save();
+
+    res.json({ status: 'success' });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: error.message });
+  }
+});
+
+// POST /api/materials/url-articles - add URL article to 素材夾 (fetch and extract meta)
+router.post('/url-articles', async (req, res) => {
+  try {
+    const { url } = req.body;
+    if (!url || typeof url !== 'string') {
+      return res.status(400).json({ status: 'error', message: 'url is required' });
+    }
+
+    const user = await findUserByIdOrName(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ status: 'error', message: 'User not found' });
+    }
+
+    const normalizedUrl = normalizeUrl(url);
+
+    // Check if already saved (by URL)
+    user.savedUrlArticles = user.savedUrlArticles || [];
+    const existing = await SavedUrlArticle.findOne({
+      _id: { $in: user.savedUrlArticles },
+      url: normalizedUrl
+    });
+    if (existing) {
+      return res.json({ status: 'success', message: 'Already in 素材夾' });
+    }
+
+    let meta;
+    try {
+      meta = await extractUrlMeta(normalizedUrl);
+    } catch (err) {
+      return res.status(400).json({
+        status: 'error',
+        message: err.message || 'Could not fetch or parse URL'
+      });
+    }
+
+    const doc = await SavedUrlArticle.create({
+      userId: user._id,
+      url: normalizedUrl,
+      title: meta.title || normalizedUrl,
+      description: meta.description || '',
+      image: meta.image,
+      siteName: meta.siteName
+    });
+
+    user.savedUrlArticles.push(doc._id);
+    await user.save();
+
+    res.status(201).json({ status: 'success', data: doc });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: error.message });
+  }
+});
+
+// DELETE /api/materials/url-articles/:id - remove URL article from 素材夾
+router.delete('/url-articles/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ status: 'error', message: 'Invalid id' });
+    }
+
+    const user = await findUserByIdOrName(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ status: 'error', message: 'User not found' });
+    }
+
+    const doc = await SavedUrlArticle.findById(id);
+    if (!doc) {
+      return res.status(404).json({ status: 'error', message: 'URL article not found' });
+    }
+    if (!doc.userId.equals(user._id)) {
+      return res.status(404).json({ status: 'error', message: 'URL article not found' });
+    }
+
+    user.savedUrlArticles = (user.savedUrlArticles || []).filter(
+      oid => oid.toString() !== id
+    );
+    await user.save();
+    await SavedUrlArticle.findByIdAndDelete(id);
 
     res.json({ status: 'success' });
   } catch (error) {

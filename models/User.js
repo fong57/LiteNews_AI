@@ -45,9 +45,10 @@ const userSchema = new mongoose.Schema({
       default: {}
     }
   },
-  // 素材夾: saved topics and social posts (persisted to DB)
+  // 素材夾: saved topics, social posts, and user-added URL articles (persisted to DB)
   savedTopics: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Topic' }],
-  savedSocialPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'SocialPost' }]
+  savedSocialPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'SocialPost' }],
+  savedUrlArticles: [{ type: mongoose.Schema.Types.ObjectId, ref: 'SavedUrlArticle' }]
 }, {
   timestamps: true
 });

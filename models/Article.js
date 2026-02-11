@@ -12,6 +12,20 @@ const articleSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  finalBody: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  hasFinalVersion: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
+  references: [{
+    title: { type: String, default: '' },
+    url: { type: String, default: '' }
+  }],
   status: {
     type: String,
     enum: ['draft', 'published'],
@@ -26,6 +40,11 @@ const articleSchema = new mongoose.Schema({
   sourceSocialPostId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'SocialPost',
+    default: null
+  },
+  sourceUrlArticleId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'SavedUrlArticle',
     default: null
   },
   sourceNewsItemIds: [{
