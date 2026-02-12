@@ -1,6 +1,7 @@
 // services/agenticWriter/nodes/finalReview.js
 const { HumanMessage, SystemMessage } = require('@langchain/core/messages');
 const { getModel } = require('../getModel');
+const { ARTICLE_TYPE_CONFIG } = require('../styleConfig');
 
 /**
  * Node: final agentic review (light fact + style check).
@@ -11,6 +12,21 @@ const { getModel } = require('../getModel');
 async function finalReviewNode(state) {
   const { revisedDraft, options, factCheckResults } = state;
   const lang = options?.language === 'zh-TW' ? '繁體中文' : 'Traditional Chinese';
+  const articleType = options?.articleType || '懶人包';
+  const config = ARTICLE_TYPE_CONFIG[articleType] || ARTICLE_TYPE_CONFIG['其他'];
+
+  const styleRules = [
+    (config.maxSentenceLength != null) && `Sentences should not exceed ${config.maxSentenceLength} characters.`,
+    (config.maxParagraphLength != null) && `Paragraphs should not exceed ${config.maxParagraphLength} characters.`,
+    (config.forbiddenPhrases && config.forbiddenPhrases.length) && `Article must NOT contain these phrases: ${config.forbiddenPhrases.join('、')}.`
+  ].filter(Boolean);
+
+  const styleCheckBlock = styleRules.length
+    ? `
+For article type "${articleType}", also verify:
+${styleRules.map((r) => `- ${r}`).join('\n')}
+`
+    : '';
 
   const systemPrompt = `
 You are a senior editor performing a final review.
@@ -19,6 +35,7 @@ Check:
 - Are there obvious factual issues based on the provided factCheck summary?
 - Does the article match the intended tone and article type?
 - Is the structure clear and appropriate for the article type?
+${styleCheckBlock}
 
 Return JSON:
 {
@@ -74,7 +91,8 @@ Perform the final review and respond in JSON as specified.
   const readyForPublish = finalReview.overallAssessment === 'good';
   const revisionCount = (state.revisionCount ?? 0) + (readyForPublish ? 0 : 1);
 
-  return { finalReview, readyForPublish, revisionCount };
+  const reviewEntry = { ...finalReview, readyForPublish };
+  return { finalReview, readyForPublish, revisionCount, finalReviewHistory: reviewEntry };
 }
 
 module.exports = { finalReviewNode };

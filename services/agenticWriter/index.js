@@ -140,10 +140,12 @@ async function runArticleGraph(jobId) {
       outline: null,
       rawDraft: null,
       revisedDraft: null,
+      revisionHistory: [],
       factCheckResults: null,
       factCheckScore: null,
       styleNotes: null,
       finalReview: null,
+      finalReviewHistory: [],
       readyForPublish: null,
       finalArticle: null,
       error: null

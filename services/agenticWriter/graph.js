@@ -16,9 +16,15 @@ const { formatNode } = require('./nodes/format');
 // Max revision loops from finalReview back to revise (avoid infinite loop).
 const MAX_REVISION_ATTEMPTS = 5;
 
+// Reducer to append a single value or array to state (for history fields).
+const appendReducer = (left, right) => {
+  if (right == null) return left || [];
+  if (Array.isArray(right)) return (left || []).concat(right);
+  return (left || []).concat([right]);
+};
+
 // State schema: each key stores the latest value from nodes (no reducers).
-// topic, newsItems, options = input; researchResults, outline, rawDraft, revisedDraft,
-// factCheckResults, factCheckScore, styleNotes, finalReview, readyForPublish, revisionCount, finalArticle, error = artifacts.
+// revisionHistory and finalReviewHistory use reducers to accumulate all revisions/reviews.
 const ArticleWriterState = Annotation.Root({
   topic: Annotation(),
   newsItems: Annotation(),
@@ -27,10 +33,18 @@ const ArticleWriterState = Annotation.Root({
   outline: Annotation(),
   rawDraft: Annotation(),
   revisedDraft: Annotation(),
+  revisionHistory: Annotation({
+    reducer: appendReducer,
+    default: () => []
+  }),
   factCheckResults: Annotation(),
   factCheckScore: Annotation(),
   styleNotes: Annotation(),
   finalReview: Annotation(),
+  finalReviewHistory: Annotation({
+    reducer: appendReducer,
+    default: () => []
+  }),
   readyForPublish: Annotation(),
   revisionCount: Annotation(),
   finalArticle: Annotation(),

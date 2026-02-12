@@ -59,7 +59,7 @@ ${options?.extraInstructions || 'None'}
 
 Generate a concise outline in ${lang} with:
 - "headline": string
-- "sections": array of 3-7 section titles (strings) in logical order.
+- "sections": array of ${config.minSections != null && config.maxSections != null ? `${config.minSections}-${config.maxSections}` : '3-7'} section titles (strings) in logical order.${config.minSections != null && config.maxSections != null ? ` Strictly between ${config.minSections} and ${config.maxSections} sections.` : ''}
 
 Return ONLY a JSON object:
 {"headline": "...", "sections": ["...", "...", "..."]}`.trim();

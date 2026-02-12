@@ -8,12 +8,16 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/litene
 
 const app = express();
 
-// Rate limiting
+// Rate limiting – return JSON so API clients don't get parse errors
 const rateLimit = require('express-rate-limit');
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
-  message: "Too many requests – try again later!"
+  max: 500,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    res.status(429).json({ message: 'Too many requests – try again later!' });
+  }
 });
 app.use('/api', apiLimiter);
 

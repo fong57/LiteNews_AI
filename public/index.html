@@ -1155,7 +1155,18 @@
                         body: JSON.stringify({ username, password })
                     });
 
-                    const data = await res.json();
+                    const contentType = res.headers.get('Content-Type') || '';
+                    let data;
+                    if (contentType.includes('application/json')) {
+                        data = await res.json();
+                    } else {
+                        const text = await res.text();
+                        try {
+                            data = JSON.parse(text);
+                        } catch {
+                            data = { message: text || (res.status === 429 ? '請求過於頻繁，請稍後再試' : '登入失敗') };
+                        }
+                    }
                     if (res.ok && data.token) {
                         localStorage.setItem('jwt_token', data.token);
                         localStorage.setItem('user_role', data.user.role);
@@ -3605,20 +3616,41 @@
                     { key: 'rawDraft', label: '初稿 (draft)', data: runLog.rawDraft },
                     { key: 'factCheckResults', label: '事實核查 (factCheck)', data: runLog.factCheckResults },
                     { key: 'factCheckScore', label: '事實核查分數', data: runLog.factCheckScore },
+                    { key: 'revisionHistory', label: '修訂紀錄 (所有版本)', data: runLog.revisionHistory, isHistory: true, itemLabel: '修訂' },
                     { key: 'revisedDraft', label: '修訂稿 (revise)', data: runLog.revisedDraft },
+                    { key: 'finalReviewHistory', label: '審閱紀錄 (所有審閱)', data: runLog.finalReviewHistory, isHistory: true, itemLabel: '審閱' },
                     { key: 'finalReview', label: '最終審閱 (doFinalReview)', data: runLog.finalReview },
                     { key: 'finalArticle', label: '輸出文章 (format)', data: runLog.finalArticle }
                 ];
                 return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                        {sections.map(({ key, label, data }) => (
-                            <div key={key} style={{ border: '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden' }}>
-                                <div style={{ padding: '0.5rem 0.75rem', background: 'var(--bg)', fontWeight: 600, fontSize: '0.875rem' }}>{label}</div>
-                                <pre style={{ margin: 0, padding: '0.75rem', fontSize: '0.8125rem', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: '280px', overflow: 'auto', background: 'var(--bg-secondary)' }}>
-                                    {data == null ? '—' : typeof data === 'string' ? data : JSON.stringify(data, null, 2)}
-                                </pre>
-                            </div>
-                        ))}
+                        {sections.map(({ key, label, data, isHistory, itemLabel }) => {
+                            if (isHistory && Array.isArray(data) && data.length > 0) {
+                                return (
+                                    <div key={key} style={{ border: '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden' }}>
+                                        <div style={{ padding: '0.5rem 0.75rem', background: 'var(--bg)', fontWeight: 600, fontSize: '0.875rem' }}>{label}</div>
+                                        <div style={{ padding: '0.75rem', background: 'var(--bg-secondary)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                            {data.map((item, idx) => (
+                                                <div key={idx}>
+                                                    <div style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem', color: 'var(--text-light)' }}>{itemLabel} {idx + 1}</div>
+                                                    <pre style={{ margin: 0, padding: '0.75rem', fontSize: '0.8125rem', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: '280px', overflow: 'auto', background: 'var(--bg)', borderRadius: '4px', border: '1px solid var(--border)' }}>
+                                                        {item == null ? '—' : typeof item === 'string' ? item : JSON.stringify(item, null, 2)}
+                                                    </pre>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            }
+                            return (
+                                <div key={key} style={{ border: '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden' }}>
+                                    <div style={{ padding: '0.5rem 0.75rem', background: 'var(--bg)', fontWeight: 600, fontSize: '0.875rem' }}>{label}</div>
+                                    <pre style={{ margin: 0, padding: '0.75rem', fontSize: '0.8125rem', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: '280px', overflow: 'auto', background: 'var(--bg-secondary)' }}>
+                                        {data == null ? '—' : typeof data === 'string' ? data : JSON.stringify(data, null, 2)}
+                                    </pre>
+                                </div>
+                            );
+                        })}
                     </div>
                 );
             };

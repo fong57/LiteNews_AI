@@ -56,6 +56,8 @@ Article type: ${articleType}
 
 [Article type style guidelines]
 ${config.styleGuidelines}
+${(config.forbiddenPhrases && config.forbiddenPhrases.length) ? `\nDo NOT use these phrases (replace or remove if present): ${config.forbiddenPhrases.join('、')}.` : ''}
+${(config.recommendedSignposts && config.recommendedSignposts.length) ? `\nPrefer these signpost phrases where appropriate: ${config.recommendedSignposts.join('、')}.` : ''}
 
 Tone: ${tone}
 Length hint: ${lengthHint}
@@ -93,7 +95,8 @@ Output only the revised article in ${lang}.`.trim();
       ? response.content
       : response.content?.trim?.() || sourceDraft || '';
 
-  return { revisedDraft: revisedText || sourceDraft || '' };
+  const draft = revisedText || sourceDraft || '';
+  return { revisedDraft: draft, revisionHistory: draft };
 }
 
 module.exports = { reviseNode };
