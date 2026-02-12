@@ -155,6 +155,7 @@ router.get('/articles/:id', async (req, res) => {
       status: article.status,
       finalBody: article.finalBody || '',
       hasFinalVersion: !!article.hasFinalVersion,
+      editorComment: article.editorComment || '',
       references: article.references || [],
       runLog: job?.runLog || null,
       sourceTopicId: article.sourceTopicId,
@@ -189,12 +190,14 @@ router.patch('/articles/:id', async (req, res) => {
       return res.status(404).json({ status: 'error', message: 'Article not found' });
     }
 
-    const { finalBody } = req.body;
+    const { finalBody, editorComment } = req.body;
     const hasFinalVersion = typeof finalBody === 'string' && finalBody.trim().length > 0;
-    await article.updateOne({
+    const update = {
       finalBody: typeof finalBody === 'string' ? finalBody.trim() : (article.finalBody || ''),
-      hasFinalVersion
-    }).exec();
+      hasFinalVersion,
+      editorComment: typeof editorComment === 'string' ? editorComment.trim() : (article.editorComment || '')
+    };
+    await article.updateOne(update).exec();
 
     res.json({
       status: 'success',
@@ -206,7 +209,7 @@ router.patch('/articles/:id', async (req, res) => {
   }
 });
 
-// DELETE /api/writer/articles/:id – delete article (user-scoped)
+// DELETE /api/writer/articles/:id – archive article (user-scoped; sets archived=true, no longer shown in list)
 router.delete('/articles/:id', async (req, res) => {
   try {
     const userIdRaw = req.user.userId || req.user.id;
@@ -229,10 +232,9 @@ router.delete('/articles/:id', async (req, res) => {
       return res.status(404).json({ status: 'error', message: 'Article not found' });
     }
 
-    await Article.deleteOne({ _id: articleId }).exec();
-    await WriterJob.updateOne({ articleId }, { $unset: { articleId: 1 } }).exec();
+    await article.updateOne({ archived: true }).exec();
 
-    res.json({ status: 'success', message: '已刪除文章' });
+    res.json({ status: 'success', message: '已封存文章' });
   } catch (error) {
     res.status(500).json({ status: 'error', message: error.message });
   }
@@ -248,7 +250,7 @@ router.get('/articles', async (req, res) => {
     }
     const userId = user._id;
 
-    const articles = await Article.find({ createdBy: userId })
+    const articles = await Article.find({ createdBy: userId, archived: { $ne: true } })
       .sort({ createdAt: -1 })
       .limit(50)
       .select('title status createdAt _id hasFinalVersion')

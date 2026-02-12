@@ -1,10 +1,13 @@
 // services/agenticWriter/index.js
-const WriterJob = require('../../models/WriterJob');
-const Article = require('../../models/Article');
-const Topic = require('../../models/Topic');
-const SocialPost = require('../../models/SocialPost');
-const SavedUrlArticle = require('../../models/SavedUrlArticle');
-const { compiledGraph } = require('./graph');
+/**
+ * These lines import Mongoose models (for MongoDB data access) and a precompiled workflow graph (the AI writing logic).
+ */
+const WriterJob = require('../../models/WriterJob'); // Import WriterJob model (database schema for writing jobs)
+const Article = require('../../models/Article'); // Import Article model (schema for generated articles)
+const Topic = require('../../models/Topic'); // Import Topic model (schema for writing topics)
+const SocialPost = require('../../models/SocialPost'); // Import SocialPost model (schema for social media posts)
+const SavedUrlArticle = require('../../models/SavedUrlArticle'); // Import SavedUrlArticle model (schema for articles saved from URLs)
+const { compiledGraph } = require('./graph');  // Import precompiled workflow graph (core logic for article generation)
 
 /**
  * Run the article-writing graph for a job (fire-and-forget).
@@ -13,48 +16,48 @@ const { compiledGraph } = require('./graph');
  * @param {string|ObjectId} jobId - WriterJob._id
  */
 async function runArticleGraph(jobId) {
-  let job;
+  let job; // Declare variable to store the job data. This will be populated with the job details from the database.
   try {
-    job = await WriterJob.findById(jobId).exec();
-    if (!job) {
+    job = await WriterJob.findById(jobId).exec(); // Find the job by its ID in the database.
+    if (!job) { // If job not found
       console.error(`[agenticWriter] Job not found: ${jobId}`);
-      return;
+      return; // Exit the function if job not found.
     }
-    await job.updateOne({ status: 'running' }).exec();
+    await job.updateOne({ status: 'running' }).exec(); // Update the job status to 'running' in the database.
   } catch (err) {
     console.error('[agenticWriter] Failed to load job:', err.message);
-    if (err.stack) console.error('[agenticWriter] Stack:', err.stack);
-    return;
+    if (err.stack) console.error('[agenticWriter] Stack:', err.stack); // Log the stack trace if available.
+    return; // Exit the function if job not found.
   }
 
-  let topicPlain;
-  let newsItems = [];
-  let sourceTopicId = null;
-  let sourceSocialPostId = null;
-  let sourceUrlArticleId = null;
-  let sourceNewsItemIds = [];
+  let topicPlain; // Plain object (not Mongoose document) for topic data
+  let newsItems = []; // List of news items to use for writing
+  let sourceTopicId = null; // Source Topic ID (if job uses a Topic)
+  let sourceSocialPostId = null; // Source Topic ID (if job uses a Topic)
+  let sourceUrlArticleId = null; // Source SavedUrlArticle ID (if job uses a URL article)
+  let sourceNewsItemIds = []; // List of source news item IDs (from Topic)
 
-  if (job.urlArticleId) {
+  if (job.urlArticleId) { // If job has a urlArticleId (source = saved URL article)
     try {
-      const urlArticle = await SavedUrlArticle.findById(job.urlArticleId).exec();
-      if (!urlArticle) {
-        await job.updateOne({ status: 'failed', error: 'URL article not found' }).exec();
-        return;
+      const urlArticle = await SavedUrlArticle.findById(job.urlArticleId).exec(); // Fetch URL article from DB
+      if (!urlArticle) { // If URL article not found
+        await job.updateOne({ status: 'failed', error: 'URL article not found' }).exec(); // Mark job as failed
+        return; // Exit
       }
-      const title = (urlArticle.title && urlArticle.title.trim()) || urlArticle.url || '連結文章';
-      topicPlain = {
+      const title = (urlArticle.title && urlArticle.title.trim()) || urlArticle.url || '連結文章'; // Get title from URL (fallback to URL or "連結文章" if empty)
+      topicPlain = { // Build topicPlain (standardized topic object for the graph)
         title,
-        summary: urlArticle.description || '',
-        category: urlArticle.siteName || '連結',
-        tags: []
+        summary: urlArticle.description || '', // Get summary from URL article
+        category: urlArticle.siteName || '連結', // Get category from URL article
+        tags: [] // Get tags from URL article
       };
       newsItems = [{
-        title: urlArticle.title || title,
-        description: urlArticle.description || '',
-        content: urlArticle.description || '',
-        url: urlArticle.url || ''
+        title: urlArticle.title || title, // Get title from URL article
+        description: urlArticle.description || '', // Get description from URL article
+        content: urlArticle.description || '', // Get content from URL article
+        url: urlArticle.url || '' // Get URL from URL article
       }];
-      sourceUrlArticleId = job.urlArticleId;
+      sourceUrlArticleId = job.urlArticleId; // Set source URL article ID
     } catch (err) {
       await job.updateOne({ status: 'failed', error: err.message }).exec();
       return;
@@ -113,7 +116,7 @@ async function runArticleGraph(jobId) {
       return;
     }
   }
-
+  // Default writing options (fallbacks)
   const defaultOptions = {
     tone: 'neutral',
     length: 'medium',
@@ -121,13 +124,15 @@ async function runArticleGraph(jobId) {
     articleType: '懶人包',
     extraInstructions: '',
     publication: 'LiteNews',
-    maxResearchArticles: 8
+    maxResearchArticles: 15 // Default max articles to 15 if not specified in options
   };
+  // Merge default options with job-specific options (job.options overrides defaults)
   const options = { ...defaultOptions, ...(job.options || {}) };
 
+  // Log the job details and topic title
   console.log('[agenticWriter] Invoking graph for job', jobId, 'topic:', topicPlain?.title);
   try {
-    const result = await compiledGraph.invoke({
+    const result = await compiledGraph.invoke({ //Runs the precompiled AI workflow graph (core logic for article generation)
       topic: topicPlain,
       newsItems,
       options,
@@ -150,15 +155,19 @@ async function runArticleGraph(jobId) {
       return;
     }
 
+    // Create a Set to track unique URLs (avoid duplicate references)
     const seenUrls = new Set();
-    const references = [];
+    const references = []; // List of references (URLs + titles)
+    // Add news items to references (unique URLs only)
     (result.newsItems || []).forEach((item) => {
-      const url = item.url && item.url.trim();
-      if (url && !seenUrls.has(url)) {
-        seenUrls.add(url);
+      const url = item.url && item.url.trim(); // Trim URL (remove whitespace)
+      if (url && !seenUrls.has(url)) { // If URL exists and not seen before
+        seenUrls.add(url); // Mark URL as seen
+        // Add to references (title fallback to URL)
         references.push({ title: (item.title && item.title.trim()) || url, url });
       }
     });
+    // Add research results to references (unique URLs only)
     (result.researchResults || []).forEach((item) => {
       const url = item.url && item.url.trim();
       if (url && !seenUrls.has(url)) {
@@ -167,18 +176,20 @@ async function runArticleGraph(jobId) {
       }
     });
 
+    // Create a new Article in the database
     const article = await Article.create({
-      title: finalArticle.title,
-      body: finalArticle.body || '',
-      status: 'draft',
-      references,
-      sourceTopicId: sourceTopicId || null,
-      sourceSocialPostId: sourceSocialPostId || null,
-      sourceUrlArticleId: sourceUrlArticleId || null,
-      sourceNewsItemIds,
-      createdBy: job.userId
+      title: finalArticle.title, // Title from graph output
+      body: finalArticle.body || '', // Article content (fallback to empty string)
+      status: 'draft', // Initial status: draft
+      references, // Unique references built above
+      sourceTopicId: sourceTopicId || null, // Source Topic ID (if job uses a Topic)
+      sourceSocialPostId: sourceSocialPostId || null, // Source Social Post ID (if job uses a Social Post)
+      sourceUrlArticleId: sourceUrlArticleId || null, // Source URL Article ID (if job uses a URL Article)
+      sourceNewsItemIds, // Source News Item IDs (if job uses a Topic)
+      createdBy: job.userId // Created by user ID
     });
 
+    // Update the job status to completed in the database
     await job.updateOne({
       status: 'completed',
       articleId: article._id,

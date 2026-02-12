@@ -4,8 +4,9 @@ const { getModel } = require('../getModel');
 
 /**
  * Node: final agentic review (light fact + style check).
- * @param {Object} state - Graph state with revisedDraft, options, factCheckResults
- * @returns {Promise<{ finalReview: any, readyForPublish: boolean }>}
+ * When overallAssessment is not "good", the graph routes back to revise for another pass (feedback loop).
+ * @param {Object} state - Graph state with revisedDraft, options, factCheckResults, revisionCount
+ * @returns {Promise<{ finalReview: any, readyForPublish: boolean, revisionCount: number }>}
  */
 async function finalReviewNode(state) {
   const { revisedDraft, options, factCheckResults } = state;
@@ -70,11 +71,10 @@ Perform the final review and respond in JSON as specified.
     }
   }
 
-  const readyForPublish =
-    finalReview.overallAssessment === 'good' ||
-    finalReview.overallAssessment === 'needs_minor_changes';
+  const readyForPublish = finalReview.overallAssessment === 'good';
+  const revisionCount = (state.revisionCount ?? 0) + (readyForPublish ? 0 : 1);
 
-  return { finalReview, readyForPublish };
+  return { finalReview, readyForPublish, revisionCount };
 }
 
 module.exports = { finalReviewNode };

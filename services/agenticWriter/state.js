@@ -16,6 +16,7 @@
  * - styleNotes: any
  * - finalReview: { issues, suggestedFixes, overallAssessment } | null
  * - readyForPublish: boolean | null
+ * - revisionCount: number (incremented when finalReview sends back to revise; caps revision loop)
  * - finalArticle: { title, body } | null
  * - error: string | null
  */

@@ -32,6 +32,11 @@ const savedUrlArticleSchema = new mongoose.Schema({
     type: String,
     trim: true,
     default: null
+  },
+  archived: {
+    type: Boolean,
+    default: false,
+    index: true
   }
 }, {
   timestamps: true

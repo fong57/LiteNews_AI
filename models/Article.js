@@ -22,6 +22,11 @@ const articleSchema = new mongoose.Schema({
     default: false,
     index: true
   },
+  editorComment: {
+    type: String,
+    default: '',
+    trim: true
+  },
   references: [{
     title: { type: String, default: '' },
     url: { type: String, default: '' }
@@ -55,6 +60,11 @@ const articleSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true,
+    index: true
+  },
+  archived: {
+    type: Boolean,
+    default: false,
     index: true
   }
 }, {

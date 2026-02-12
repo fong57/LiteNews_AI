@@ -9,7 +9,7 @@ const TAVILY_SEARCH_URL = 'https://api.tavily.com/search';
  * Run a web search and return normalized results.
  * @param {Object} opts
  * @param {string} opts.query - Search query
- * @param {number} [opts.maxResults=5] - Max results (Tavily allows 0-20)
+ * @param {number} [opts.maxResults=10] - Max results (Tavily allows 0-20)
  * @returns {Promise<Array<{ title: string, url: string, snippet: string, content: string }>>}
  */
 async function searchWeb({ query, maxResults = 5 }) {
@@ -18,7 +18,7 @@ async function searchWeb({ query, maxResults = 5 }) {
     return [];
   }
 
-  const max = Math.min(20, Math.max(0, Number(maxResults) || 5));
+  const max = Math.min(20, Math.max(0, Number(maxResults) || 20));
 
   try {
     const { data } = await axios.post(
@@ -26,7 +26,7 @@ async function searchWeb({ query, maxResults = 5 }) {
       {
         query: String(query).trim(),
         max_results: max,
-        search_depth: 'basic',
+        search_depth: 'advanced', // basic, advanced, or deep (more expensive)
         include_answer: false
       },
       {
@@ -34,7 +34,7 @@ async function searchWeb({ query, maxResults = 5 }) {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${apiKey}`
         },
-        timeout: 15000
+        timeout: 20000
       }
     );
 

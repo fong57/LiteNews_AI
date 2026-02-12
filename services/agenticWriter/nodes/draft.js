@@ -11,6 +11,7 @@ const { ARTICLE_TYPE_CONFIG } = require('../styleConfig');
 async function draftNode(state) {
   const { outline, newsItems, researchResults, options } = state;
   const articleType = options?.articleType || '懶人包';
+  const publication = options?.publication || 'LiteNews';
   const config = ARTICLE_TYPE_CONFIG[articleType] || ARTICLE_TYPE_CONFIG['其他'];
 
   const lang = options?.language === 'zh-TW' ? '繁體中文' : 'Traditional Chinese';
@@ -32,7 +33,11 @@ async function draftNode(state) {
     .join('\n\n');
 
   const systemPrompt = `
-You are a news article writer for LiteNews.
+You are a news article writer for ${publication}.
+- Do NOT invent facts, statistics, or quotes if no sources are provided.
+- If information is missing, state "暂无公开数据" (no public data) instead of guessing.
+- Avoid overconfident language (e.g., "definitely", "proven") for uncertain claims.
+
 Write a ${articleType} article.
 
 Follow these guidelines:

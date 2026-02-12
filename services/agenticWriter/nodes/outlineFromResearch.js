@@ -1,7 +1,7 @@
 // services/agenticWriter/nodes/outlineFromResearch.js
-const { HumanMessage, SystemMessage } = require('@langchain/core/messages');
-const { getModel } = require('../getModel');
-const { ARTICLE_TYPE_CONFIG } = require('../styleConfig');
+const { HumanMessage, SystemMessage } = require('@langchain/core/messages'); // LangChain message types to structure prompts for LLMs (system = instructions for the AI, human = user input/context)
+const { getModel } = require('../getModel'); // Shared ChatPerplexity instance for graph nodes.
+const { ARTICLE_TYPE_CONFIG } = require('../styleConfig'); // Article type configuration (different guidelines for different article types)
 
 /**
  * Node: build outline using topic + internal newsItems + external research + articleType.
@@ -11,6 +11,7 @@ const { ARTICLE_TYPE_CONFIG } = require('../styleConfig');
 async function outlineFromResearchNode(state) {
   const { topic, newsItems, researchResults, options } = state;
   const articleType = options?.articleType || '懶人包';
+  const publication = options?.publication || 'LiteNews';
   const config = ARTICLE_TYPE_CONFIG[articleType] || ARTICLE_TYPE_CONFIG['其他'];
 
   const lang = options?.language === 'zh-TW' ? '繁體中文' : 'Traditional Chinese';
@@ -32,7 +33,7 @@ async function outlineFromResearchNode(state) {
     .join('\n\n');
 
   const systemPrompt = `
-You are an article outline assistant for a ${articleType} article for LiteNews.
+You are an article outline assistant for a ${articleType} article for ${publication}.
 Follow these guidelines:
 
 [Article type outline guidelines]

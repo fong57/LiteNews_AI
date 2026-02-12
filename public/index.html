@@ -1356,7 +1356,7 @@
                 }
             };
 
-            // Remove topic from draft (persisted to DB)
+            // Archive topic from 素材夾 (persisted to DB)
             const handleRemoveFromDraft = async (topicId) => {
                 const token = localStorage.getItem('jwt_token');
                 if (!token) return;
@@ -1367,14 +1367,17 @@
                     });
                     if (res.ok) {
                         setDrafts(prev => prev.filter(d => d._id !== topicId));
-                        showMessage('已從素材夾移除', 'success');
+                        showMessage('已封存', 'success');
+                    } else {
+                        const data = await res.json().catch(() => ({}));
+                        showMessage(data.message || '封存失敗', 'error');
                     }
                 } catch (e) {
-                    showMessage('移除失敗: ' + e.message, 'error');
+                    showMessage('封存失敗: ' + e.message, 'error');
                 }
             };
 
-            // Remove social post from draft (persisted to DB)
+            // Archive social post from 素材夾 (persisted to DB)
             const handleRemoveSocialPostFromDraft = async (postId) => {
                 const token = localStorage.getItem('jwt_token');
                 if (!token) return;
@@ -1391,14 +1394,17 @@
                     if (res.ok) {
                         const idStr = (idToDelete && (idToDelete.toString && idToDelete.toString())) || idToDelete;
                         setSocialPostDrafts(prev => prev.filter(d => (d._id && d._id.toString()) !== idStr));
-                        showMessage('已從素材夾移除', 'success');
+                        showMessage('已封存', 'success');
+                    } else {
+                        const data = await res.json().catch(() => ({}));
+                        showMessage(data.message || '封存失敗', 'error');
                     }
                 } catch (e) {
-                    showMessage('移除失敗: ' + e.message, 'error');
+                    showMessage('封存失敗: ' + e.message, 'error');
                 }
             };
 
-            // Remove URL article from draft (persisted to DB)
+            // Archive URL article from 素材夾 (persisted to DB)
             const handleRemoveUrlArticleFromDraft = async (id) => {
                 const token = localStorage.getItem('jwt_token');
                 if (!token) return;
@@ -1409,13 +1415,13 @@
                     });
                     if (res.ok) {
                         setUrlArticleDrafts(prev => prev.filter(x => (x._id && x._id.toString()) !== (id && id.toString())));
-                        showMessage('已從素材夾移除', 'success');
+                        showMessage('已封存', 'success');
                     } else {
                         const data = await res.json().catch(() => ({}));
-                        showMessage(data.message || '移除失敗', 'error');
+                        showMessage(data.message || '封存失敗', 'error');
                     }
                 } catch (e) {
-                    showMessage('移除失敗: ' + e.message, 'error');
+                    showMessage('封存失敗: ' + e.message, 'error');
                 }
             };
 
@@ -3255,7 +3261,7 @@
                                                 onClick={() => onRemoveFromDraft(topic._id)}
                                                 style={{ flex: '0 0 auto' }}
                                             >
-                                                移除
+                                                封存
                                             </button>
                                             <button
                                                 className="card-copy-btn"
@@ -3333,7 +3339,7 @@
                                                     onClick={() => onRemoveSocialPostFromDraft(post._id || post.externalId)}
                                                     style={{ flex: '0 0 auto' }}
                                                 >
-                                                    移除
+                                                    封存
                                                 </button>
                                                 <button
                                                     className="card-copy-btn"
@@ -3403,7 +3409,7 @@
                                                     onClick={() => onRemoveUrlArticleFromDraft && onRemoveUrlArticleFromDraft(item._id)}
                                                     style={{ flex: '0 0 auto' }}
                                                 >
-                                                    移除
+                                                    封存
                                                 </button>
                                                 <button
                                                     className="card-copy-btn"
@@ -3500,6 +3506,7 @@
                                     const aData = await aRes.json();
                                     setArticle(aData);
                                     setFinalDraft(aData.finalBody || '');
+                                    setCommentDraft(aData.editorComment || '');
                                     setExpandedId(data.articleId);
                                     if (showMessage) showMessage('文章已生成', 'success');
                                 }
@@ -3523,6 +3530,7 @@
 
             const [savingFinal, setSavingFinal] = useState(false);
             const [finalDraft, setFinalDraft] = useState('');
+            const [commentDraft, setCommentDraft] = useState('');
             const [expandedId, setExpandedId] = useState(null);
 
             const handleViewArticle = async (id) => {
@@ -3537,6 +3545,7 @@
                         const data = await res.json();
                         setArticle(data);
                         setFinalDraft(data.finalBody || '');
+                        setCommentDraft(data.editorComment || '');
                         setExpandedId(id);
                     }
                 } catch (e) {
@@ -3551,11 +3560,11 @@
                     const res = await fetch(`/api/writer/articles/${article._id}`, {
                         method: 'PATCH',
                         headers,
-                        body: JSON.stringify({ finalBody: finalDraft })
+                        body: JSON.stringify({ finalBody: finalDraft, editorComment: commentDraft })
                     });
                     const data = await res.json();
                     if (res.ok && data.status === 'success') {
-                        setArticle(prev => prev ? { ...prev, finalBody: finalDraft, hasFinalVersion: data.hasFinalVersion } : null);
+                        setArticle(prev => prev ? { ...prev, finalBody: finalDraft, editorComment: commentDraft, hasFinalVersion: data.hasFinalVersion } : null);
                         setMyArticles(prev => prev.map(a => a._id === article._id ? { ...a, hasFinalVersion: data.hasFinalVersion } : a));
                         if (showMessage) showMessage(data.message || '已儲存', 'success');
                     } else {
@@ -3570,19 +3579,19 @@
 
             const handleDeleteArticle = async (id, e) => {
                 if (e) e.stopPropagation();
-                if (!window.confirm('確定要刪除此文章？')) return;
+                if (!window.confirm('確定要封存此文章？')) return;
                 try {
                     const res = await fetch(`/api/writer/articles/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
                     const data = await res.json();
                     if (res.ok && data.status === 'success') {
                         setMyArticles(prev => prev.filter(a => a._id !== id));
                         if (article && article._id === id) { setArticle(null); setExpandedId(null); }
-                        if (showMessage) showMessage('已刪除', 'success');
+                        if (showMessage) showMessage('已封存', 'success');
                     } else {
-                        if (showMessage) showMessage(data.message || '刪除失敗', 'error');
+                        if (showMessage) showMessage(data.message || '封存失敗', 'error');
                     }
                 } catch (e) {
-                    if (showMessage) showMessage('刪除失敗: ' + e.message, 'error');
+                    if (showMessage) showMessage('封存失敗: ' + e.message, 'error');
                 }
             };
 
@@ -3658,16 +3667,16 @@
                                             <button
                                                 className="btn btn-danger btn-sm"
                                                 onClick={(e) => handleDeleteArticle(a._id, e)}
-                                                title="刪除此文章"
+                                                title="封存此文章"
                                             >
-                                                刪除
+                                                封存
                                             </button>
                                             <span style={{ flex: '1 1 200px', minWidth: 0 }}>{a.title}</span>
                                             {a.hasFinalVersion && (
                                                 <span style={{ color: 'var(--success)', fontWeight: 600, fontSize: '0.875rem' }}>完成</span>
                                             )}
                                             <span style={{ color: 'var(--text-light)', fontSize: '0.875rem' }}>
-                                                {a.createdAt ? new Date(a.createdAt).toLocaleDateString() : ''}
+                                                {a.createdAt ? new Date(a.createdAt).toLocaleString('zh-TW', { dateStyle: 'short', timeStyle: 'short' }) : ''}
                                             </span>
                                         </div>
                                         {expandedId === a._id && article && article._id === a._id && (
@@ -3716,6 +3725,15 @@
                                                             {savingFinal ? '儲存中…' : '儲存最終版本'}
                                                         </button>
                                                     </div>
+                                                    <h4 style={{ fontSize: '1rem', fontWeight: 600, marginTop: '1.25rem', marginBottom: '0.75rem' }}>編輯意見/評價</h4>
+                                                    <textarea
+                                                        className="form-control"
+                                                        rows={4}
+                                                        placeholder="輸入編輯意見或評價（與最終版本一併儲存）"
+                                                        value={commentDraft}
+                                                        onChange={e => setCommentDraft(e.target.value)}
+                                                        style={{ width: '100%', resize: 'vertical' }}
+                                                    />
                                                 </section>
                                                 <section>
                                                     <h4 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.75rem' }}>4. 撰寫流程紀錄（節點輸入/輸出）</h4>

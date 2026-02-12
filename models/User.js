@@ -48,7 +48,10 @@ const userSchema = new mongoose.Schema({
   // 素材夾: saved topics, social posts, and user-added URL articles (persisted to DB)
   savedTopics: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Topic' }],
   savedSocialPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'SocialPost' }],
-  savedUrlArticles: [{ type: mongoose.Schema.Types.ObjectId, ref: 'SavedUrlArticle' }]
+  savedUrlArticles: [{ type: mongoose.Schema.Types.ObjectId, ref: 'SavedUrlArticle' }],
+  // 封存: archived items are excluded from 素材夾 display
+  archivedTopicIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Topic' }],
+  archivedSocialPostIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'SocialPost' }]
 }, {
   timestamps: true
 });

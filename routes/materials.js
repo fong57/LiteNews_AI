@@ -23,7 +23,7 @@ router.get('/', async (req, res) => {
     const user = await User.findById(userDoc._id)
       .populate('savedTopics')
       .populate({ path: 'savedSocialPosts', populate: { path: 'handleId', select: 'displayName handle' } })
-      .populate('savedUrlArticles')
+      .populate({ path: 'savedUrlArticles', match: { archived: { $ne: true } } })
       .lean();
 
     const topics = (user.savedTopics || []).filter(Boolean);
@@ -73,7 +73,7 @@ router.post('/topics', async (req, res) => {
   }
 });
 
-// DELETE /api/materials/topics/:topicId - remove topic from 素材夾
+// DELETE /api/materials/topics/:topicId - archive topic (remove from 素材夾 display)
 router.delete('/topics/:topicId', async (req, res) => {
   try {
     const { topicId } = req.params;
@@ -86,12 +86,15 @@ router.delete('/topics/:topicId', async (req, res) => {
       return res.status(404).json({ status: 'error', message: 'User not found' });
     }
 
-    user.savedTopics = (user.savedTopics || []).filter(
-      id => id.toString() !== topicId
-    );
+    const oid = new mongoose.Types.ObjectId(topicId);
+    user.savedTopics = (user.savedTopics || []).filter(id => id.toString() !== topicId);
+    user.archivedTopicIds = user.archivedTopicIds || [];
+    if (!user.archivedTopicIds.some(id => id.toString() === topicId)) {
+      user.archivedTopicIds.push(oid);
+    }
     await user.save();
 
-    res.json({ status: 'success' });
+    res.json({ status: 'success', message: '已封存' });
   } catch (error) {
     res.status(500).json({ status: 'error', message: error.message });
   }
@@ -131,7 +134,7 @@ router.post('/social-posts', async (req, res) => {
   }
 });
 
-// DELETE /api/materials/social-posts/:socialPostId - remove social post from 素材夾
+// DELETE /api/materials/social-posts/:socialPostId - archive social post (remove from 素材夾 display)
 router.delete('/social-posts/:socialPostId', async (req, res) => {
   try {
     const { socialPostId } = req.params;
@@ -144,12 +147,15 @@ router.delete('/social-posts/:socialPostId', async (req, res) => {
       return res.status(404).json({ status: 'error', message: 'User not found' });
     }
 
-    user.savedSocialPosts = (user.savedSocialPosts || []).filter(
-      id => id.toString() !== socialPostId
-    );
+    const oid = new mongoose.Types.ObjectId(socialPostId);
+    user.savedSocialPosts = (user.savedSocialPosts || []).filter(id => id.toString() !== socialPostId);
+    user.archivedSocialPostIds = user.archivedSocialPostIds || [];
+    if (!user.archivedSocialPostIds.some(id => id.toString() === socialPostId)) {
+      user.archivedSocialPostIds.push(oid);
+    }
     await user.save();
 
-    res.json({ status: 'success' });
+    res.json({ status: 'success', message: '已封存' });
   } catch (error) {
     res.status(500).json({ status: 'error', message: error.message });
   }
@@ -208,7 +214,7 @@ router.post('/url-articles', async (req, res) => {
   }
 });
 
-// DELETE /api/materials/url-articles/:id - remove URL article from 素材夾
+// DELETE /api/materials/url-articles/:id - archive URL article (no longer shown in 素材夾)
 router.delete('/url-articles/:id', async (req, res) => {
   try {
     const id = req.params.id;
@@ -229,13 +235,9 @@ router.delete('/url-articles/:id', async (req, res) => {
       return res.status(404).json({ status: 'error', message: 'URL article not found' });
     }
 
-    user.savedUrlArticles = (user.savedUrlArticles || []).filter(
-      oid => oid.toString() !== id
-    );
-    await user.save();
-    await SavedUrlArticle.findByIdAndDelete(id);
+    await doc.updateOne({ archived: true }).exec();
 
-    res.json({ status: 'success' });
+    res.json({ status: 'success', message: '已封存' });
   } catch (error) {
     res.status(500).json({ status: 'error', message: error.message });
   }

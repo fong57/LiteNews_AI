@@ -1,5 +1,5 @@
 // services/agenticWriter/styleConfig.js
-// LiteNews article type guidelines for outline, draft, and style.
+// Article type guidelines for outline, draft, and style.
 
 const ARTICLE_TYPE_CONFIG = {
   多方觀點: {
