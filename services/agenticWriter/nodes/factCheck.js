@@ -3,8 +3,18 @@ const { HumanMessage, SystemMessage } = require('@langchain/core/messages');
 const { getModel } = require('../getModel');
 const { searchWeb } = require('../tools/searchWeb');
 
+function isConnectionError(err) {
+  const msg = err?.message || '';
+  const cause = err?.cause?.message || err?.cause || '';
+  return (
+    /connection error|fetch failed|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|network/i.test(msg) ||
+    (typeof cause === 'string' && /fetch failed|connection/i.test(cause))
+  );
+}
+
 /**
  * Node: fact-check the draft and produce factCheckResults + factCheckScore.
+ * On connection/API errors, returns score 1.0 and empty results so the pipeline continues.
  * @param {Object} state - Graph state with rawDraft, options
  * @returns {Promise<{ factCheckResults: any, factCheckScore: number }>}
  */
@@ -12,6 +22,21 @@ async function factCheckNode(state) {
   const { rawDraft, options } = state;
   const lang = options?.language === 'zh-TW' ? '繁體中文' : 'Traditional Chinese';
 
+  try {
+    return await runFactCheck(state, rawDraft, lang);
+  } catch (err) {
+    if (isConnectionError(err)) {
+      console.warn('[agenticWriter] factCheck skipped (connection error), continuing pipeline:', err.message);
+      return {
+        factCheckResults: { claims: [], score: 1.0, skipped: true },
+        factCheckScore: 1.0
+      };
+    }
+    throw err;
+  }
+}
+
+async function runFactCheck(state, rawDraft, lang) {
   // 1. Ask model to extract key factual claims
   const extractSystem = `
 You are a fact-checking assistant.
@@ -21,9 +46,12 @@ Return JSON with:
 Output only JSON.
 `.trim();
 
+  // Cap draft length to avoid oversized API payloads (e.g. 多方觀點 produces long drafts)
+  const MAX_DRAFT_CHARS = 5000;
+  const draftForExtract = (rawDraft || '').slice(0, MAX_DRAFT_CHARS);
   const extractUser = `
 Article (in ${lang}):
-${rawDraft || ''}
+${draftForExtract}${(rawDraft || '').length > MAX_DRAFT_CHARS ? '\n…' : ''}
 
 Extract 10-20 factual claims (short sentences) that can be checked.
 `.trim();

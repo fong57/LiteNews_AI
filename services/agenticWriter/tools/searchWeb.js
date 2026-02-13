@@ -9,7 +9,7 @@ const TAVILY_SEARCH_URL = 'https://api.tavily.com/search';
  * Run a web search and return normalized results.
  * @param {Object} opts
  * @param {string} opts.query - Search query
- * @param {number} [opts.maxResults=10] - Max results (Tavily allows 0-20)
+ * @param {number} [opts.maxResults=20] - Max results (Tavily allows 0-20)
  * @returns {Promise<Array<{ title: string, url: string, snippet: string, content: string }>>}
  */
 async function searchWeb({ query, maxResults = 5 }) {

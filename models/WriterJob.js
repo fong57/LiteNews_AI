@@ -40,7 +40,7 @@ const writerJobSchema = new mongoose.Schema({
   },
   options: {
     tone: { type: String, default: 'neutral' },
-    length: { type: String, default: 'medium' },
+    length: { type: Number, default: 800 },
     language: { type: String, default: 'zh-TW' },
     articleType: { type: String, default: '懶人包' },
     extraInstructions: { type: String, default: '' },

@@ -119,7 +119,7 @@ async function runArticleGraph(jobId) {
   // Default writing options (fallbacks)
   const defaultOptions = {
     tone: 'neutral',
-    length: 'medium',
+    length: 800,
     language: 'zh-TW',
     articleType: '懶人包',
     extraInstructions: '',
@@ -131,25 +131,48 @@ async function runArticleGraph(jobId) {
 
   // Log the job details and topic title
   console.log('[agenticWriter] Invoking graph for job', jobId, 'topic:', topicPlain?.title);
+  const initialState = {
+    topic: topicPlain,
+    newsItems,
+    options,
+    researchResults: null,
+    outline: null,
+    rawDraft: null,
+    revisedDraft: null,
+    revisionHistory: [],
+    factCheckResults: null,
+    factCheckScore: null,
+    styleNotes: null,
+    finalReview: null,
+    finalReviewHistory: [],
+    readyForPublish: null,
+    finalArticle: null,
+    error: null
+  };
+  const maxAttempts = 2;
+  let result;
   try {
-    const result = await compiledGraph.invoke({ //Runs the precompiled AI workflow graph (core logic for article generation)
-      topic: topicPlain,
-      newsItems,
-      options,
-      researchResults: null,
-      outline: null,
-      rawDraft: null,
-      revisedDraft: null,
-      revisionHistory: [],
-      factCheckResults: null,
-      factCheckScore: null,
-      styleNotes: null,
-      finalReview: null,
-      finalReviewHistory: [],
-      readyForPublish: null,
-      finalArticle: null,
-      error: null
-    });
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        if (attempt > 1) console.log('[agenticWriter] Retry attempt', attempt);
+        result = await compiledGraph.invoke(initialState);
+        break;
+      } catch (invokeErr) {
+        const isConnectionErr =
+          /connection error|fetch failed|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|network/i.test(invokeErr.message) ||
+          (typeof (invokeErr.cause?.message || invokeErr.cause) === 'string' && /fetch failed|connection/i.test(invokeErr.cause?.message || invokeErr.cause));
+        if (isConnectionErr && attempt < maxAttempts) {
+          console.warn('[agenticWriter] Connection error, retrying in 3s…', invokeErr.message);
+          await new Promise((r) => setTimeout(r, 3000));
+          continue;
+        }
+        throw invokeErr;
+      }
+    }
+    if (!result) {
+      await job.updateOne({ status: 'failed', error: 'Graph did not produce result' }).exec();
+      return;
+    }
 
     const finalArticle = result.finalArticle;
     if (!finalArticle || !finalArticle.title) {
@@ -207,7 +230,12 @@ async function runArticleGraph(jobId) {
     if (status != null) console.error('[agenticWriter] Response status:', status);
     if (responseData != null) console.error('[agenticWriter] Response data:', typeof responseData === 'object' ? JSON.stringify(responseData).slice(0, 1000) : responseData);
     if (cause) console.error('[agenticWriter] Cause:', cause);
-    const errorDetail = err.message + (status != null ? ` (HTTP ${status})` : '') + (responseData?.error ? ` — ${responseData.error}` : '');
+    const isConnectionError =
+      /connection error|fetch failed|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|network/i.test(err.message) ||
+      (typeof cause === 'string' && /fetch failed|connection/i.test(cause));
+    const errorDetail = isConnectionError
+      ? 'Perplexity API connection failed. Check network, firewall, and PERPLEXITY_API_KEY. ' + (err.message || '')
+      : err.message + (status != null ? ` (HTTP ${status})` : '') + (responseData?.error ? ` — ${responseData.error}` : '');
     await job.updateOne({
       status: 'failed',
       error: errorDetail.length > 500 ? errorDetail.slice(0, 497) + '…' : errorDetail

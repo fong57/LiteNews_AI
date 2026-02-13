@@ -14,7 +14,8 @@ function getModel() {
       model: process.env.PERPLEXITY_MODEL || 'sonar',
       apiKey,
       temperature: 0.3,
-      maxTokens: 4096
+      maxTokens: 4096,
+      timeout: Number(process.env.PERPLEXITY_TIMEOUT_MS) || 60_000
     });
   }
   return _model;

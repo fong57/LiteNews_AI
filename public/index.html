@@ -3058,9 +3058,10 @@
 
         function WriteArticleModal({ open, source, onClose, onConfirm }) {
             const [articleType, setArticleType] = useState('懶人包');
-            const [length, setLength] = useState('medium');
+            const [length, setLength] = useState('800');
             const [extraInstructions, setExtraInstructions] = useState('');
             const sourceTitle = source?.data?.title || source?.data?.content?.slice?.(0, 60) || source?.data?.url || '此主題';
+            const lengthNum = Math.max(200, Math.min(5000, parseInt(length, 10) || 800));
             return open ? (
                 <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }} onClick={(e) => e.target === e.currentTarget && onClose()}>
                     <div className="modal-content" style={{ background: 'var(--bg)', borderRadius: 'var(--radius)', padding: '1.5rem', maxWidth: '420px', width: '90%', boxShadow: 'var(--shadow)' }} onClick={e => e.stopPropagation()}>
@@ -3076,12 +3077,8 @@
                                 </select>
                             </label>
                             <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                                <span style={{ fontWeight: 500 }}>文章長度</span>
-                                <select className="form-control" value={length} onChange={e => setLength(e.target.value)}>
-                                    <option value="short">短（約 500 字）</option>
-                                    <option value="medium">中（約 800–1000 字）</option>
-                                    <option value="long">長（約 1500 字以上）</option>
-                                </select>
+                                <span style={{ fontWeight: 500 }}>目標字數（字）</span>
+                                <input type="number" className="form-control" min={200} max={5000} step={100} value={length} onChange={e => setLength(e.target.value)} placeholder="800" />
                             </label>
                             <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                                 <span style={{ fontWeight: 500 }}>補充說明（選填）</span>
@@ -3090,7 +3087,7 @@
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1.25rem' }}>
                             <button type="button" className="btn btn-outline" onClick={onClose}>取消</button>
-                            <button type="button" className="btn btn-primary" onClick={() => onConfirm({ articleType, length, extraInstructions: extraInstructions.trim() })}>開始撰寫</button>
+                            <button type="button" className="btn btn-primary" onClick={() => onConfirm({ articleType, length: lengthNum, extraInstructions: extraInstructions.trim() })}>開始撰寫</button>
                         </div>
                     </div>
                 </div>

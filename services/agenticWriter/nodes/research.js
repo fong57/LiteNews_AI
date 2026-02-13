@@ -9,7 +9,7 @@ const { searchWeb } = require('../tools/searchWeb');
 async function researchNode(state) { // Defines an async function researchNode, The only parameter is state, which is the full LangGraph state object passed into every node in the workflow.
   // Extract Inputs from State
   const { topic, options } = state;
-  const maxArticles = options?.maxResearchArticles ?? 20; // Default max articles to 8 if not specified in options
+  const maxArticles = options?.maxResearchArticles ?? 20; // Default max articles to 20 if not specified in options
   const query = topic?.title || topic?.summary || '時事';
 
   const results = await searchWeb({

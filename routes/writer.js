@@ -70,7 +70,7 @@ router.post('/generate', async (req, res) => {
       status: 'pending',
       options: {
         tone: options.tone || 'neutral',
-        length: options.length || 'medium',
+        length: typeof options.length === 'number' ? options.length : (parseInt(options.length, 10) || 800),
         language: options.language || 'zh-TW',
         articleType: options.articleType || '懶人包',
         extraInstructions: options.extraInstructions || '',
