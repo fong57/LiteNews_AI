@@ -23,10 +23,42 @@ router.post('/generate', async (req, res) => {
     }
     const userId = user._id;
 
-    const { topicId, socialPostId, urlArticleId, options = {} } = req.body;
-    const provided = [topicId, socialPostId, urlArticleId].filter(Boolean);
-    if (provided.length !== 1) {
-      return res.status(400).json({ status: 'error', message: 'Provide exactly one of topicId, socialPostId, or urlArticleId' });
+    const { topicId, socialPostId, urlArticleId, customTitle, customSummary, options = {} } = req.body;
+    const fromSource = [topicId, socialPostId, urlArticleId].filter(Boolean);
+    const fromCustom = typeof customTitle === 'string' && customTitle.trim() !== '';
+    if (fromSource.length > 1 || (fromSource.length === 1 && fromCustom)) {
+      return res.status(400).json({ status: 'error', message: 'Provide exactly one of topicId, socialPostId, urlArticleId, or customTitle' });
+    }
+    if (fromSource.length === 0 && !fromCustom) {
+      return res.status(400).json({ status: 'error', message: 'Provide exactly one of topicId, socialPostId, urlArticleId, or customTitle' });
+    }
+
+    if (fromCustom) {
+      // 寫作中心「開始寫作」: custom topic only
+      const title = customTitle.trim();
+      const summary = typeof customSummary === 'string' && customSummary.trim() !== '' ? customSummary.trim() : title;
+      const job = await WriterJob.create({
+        userId,
+        topicId: null,
+        socialPostId: null,
+        urlArticleId: null,
+        customTitle: title,
+        customSummary: summary,
+        status: 'pending',
+        options: {
+          tone: options.tone || 'neutral',
+          length: typeof options.length === 'number' ? options.length : (parseInt(options.length, 10) || 800),
+          language: options.language || 'zh-TW',
+          articleType: options.articleType || '懶人包',
+          extraInstructions: options.extraInstructions || '',
+          publication: options.publication || 'LiteNews',
+          maxResearchArticles: options.maxResearchArticles ?? 8
+        }
+      });
+      runArticleGraph(job._id).catch((err) => {
+        console.error('[writer] runArticleGraph error:', err.message);
+      });
+      return res.status(201).json({ status: 'success', jobId: job._id });
     }
 
     if (topicId) {

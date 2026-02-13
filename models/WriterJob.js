@@ -23,6 +23,9 @@ const writerJobSchema = new mongoose.Schema({
     ref: 'SavedUrlArticle',
     default: null
   },
+  // Custom topic from 寫作中心「開始寫作」：user types topic; passed as title/summary to graph
+  customTitle: { type: String, default: null },
+  customSummary: { type: String, default: null },
   status: {
     type: String,
     enum: ['pending', 'running', 'completed', 'failed'],

@@ -37,7 +37,13 @@ async function runArticleGraph(jobId) {
   let sourceUrlArticleId = null; // Source SavedUrlArticle ID (if job uses a URL article)
   let sourceNewsItemIds = []; // List of source news item IDs (from Topic)
 
-  if (job.urlArticleId) { // If job has a urlArticleId (source = saved URL article)
+  if (job.customTitle != null && String(job.customTitle).trim() !== '') {
+    // Custom topic from 寫作中心「開始寫作」: user input passed as title/summary
+    const title = String(job.customTitle).trim();
+    const summary = (job.customSummary != null && String(job.customSummary).trim() !== '') ? String(job.customSummary).trim() : title;
+    topicPlain = { title, summary, category: '自訂主題', tags: [] };
+    newsItems = [];
+  } else if (job.urlArticleId) { // If job has a urlArticleId (source = saved URL article)
     try {
       const urlArticle = await SavedUrlArticle.findById(job.urlArticleId).exec(); // Fetch URL article from DB
       if (!urlArticle) { // If URL article not found
