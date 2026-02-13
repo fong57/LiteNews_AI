@@ -3735,25 +3735,19 @@
                                                     )}
                                                 </section>
                                                 <section style={{ marginBottom: '2rem' }}>
-                                                    <h4 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.75rem' }}>3. 最終版本（貼上並儲存）</h4>
+                                                    <h4 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.75rem' }}>3. 撰寫流程紀錄（節點輸入/輸出）</h4>
+                                                    {renderRunLog(article.runLog)}
+                                                </section>
+                                                <section>
+                                                    <h4 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.75rem' }}>4. 最終版本（貼上並儲存）</h4>
                                                     <textarea
                                                         className="form-control"
                                                         rows={10}
-                                                        placeholder="在此貼上或輸入最終版本內容，然後按「儲存最終版本」"
+                                                        placeholder="在此貼上或輸入最終版本內容，然後在下方填寫編輯意見並按「儲存最終版本及編輯意見」"
                                                         value={finalDraft}
                                                         onChange={e => setFinalDraft(e.target.value)}
                                                         style={{ width: '100%', resize: 'vertical', minHeight: '200px' }}
                                                     />
-                                                    <div style={{ marginTop: '0.5rem' }}>
-                                                        <button
-                                                            type="button"
-                                                            className="btn btn-primary"
-                                                            onClick={handleSaveFinalVersion}
-                                                            disabled={savingFinal}
-                                                        >
-                                                            {savingFinal ? '儲存中…' : '儲存最終版本'}
-                                                        </button>
-                                                    </div>
                                                     <h4 style={{ fontSize: '1rem', fontWeight: 600, marginTop: '1.25rem', marginBottom: '0.75rem' }}>編輯意見/評價</h4>
                                                     <textarea
                                                         className="form-control"
@@ -3763,10 +3757,16 @@
                                                         onChange={e => setCommentDraft(e.target.value)}
                                                         style={{ width: '100%', resize: 'vertical' }}
                                                     />
-                                                </section>
-                                                <section>
-                                                    <h4 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.75rem' }}>4. 撰寫流程紀錄（節點輸入/輸出）</h4>
-                                                    {renderRunLog(article.runLog)}
+                                                    <div style={{ marginTop: '0.5rem' }}>
+                                                        <button
+                                                            type="button"
+                                                            className="btn btn-primary"
+                                                            onClick={handleSaveFinalVersion}
+                                                            disabled={savingFinal}
+                                                        >
+                                                            {savingFinal ? '儲存中…' : '儲存最終版本及編輯意見'}
+                                                        </button>
+                                                    </div>
                                                 </section>
                                             </div>
                                         )}

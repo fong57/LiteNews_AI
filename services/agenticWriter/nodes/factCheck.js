@@ -47,7 +47,7 @@ Output only JSON.
 `.trim();
 
   // Cap draft length to avoid oversized API payloads (e.g. 多方觀點 produces long drafts)
-  const MAX_DRAFT_CHARS = 5000;
+  const MAX_DRAFT_CHARS = 2000;
   const draftForExtract = (rawDraft || '').slice(0, MAX_DRAFT_CHARS);
   const extractUser = `
 Article (in ${lang}):
